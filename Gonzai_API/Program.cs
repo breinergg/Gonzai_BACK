@@ -1,4 +1,7 @@
 using Gonzai_API.Data;
+using Gonzai_API.Mapping;
+using Mapster;
+using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +13,12 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Mapster
+var mapsterConfig = TypeAdapterConfig.GlobalSettings;
+mapsterConfig.Scan(typeof(MappingConfig).Assembly);
+builder.Services.AddSingleton(mapsterConfig);
+builder.Services.AddScoped<IMapper, ServiceMapper>();
 
 var app = builder.Build();
 
