@@ -57,7 +57,7 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddCors(options => {
     options.AddPolicy("FrontendPolicy", policy => {
-        policy.WithOrigins("http://localhost:4200")
+        policy.WithOrigins("http://localhost:4200", "https://1f15mqrk-4200.use2.devtunnels.ms")
               .AllowAnyMethod()
               .WithHeaders("Content-Type", "Authorization")
               .AllowCredentials();
