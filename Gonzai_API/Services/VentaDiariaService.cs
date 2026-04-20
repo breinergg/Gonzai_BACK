@@ -121,4 +121,39 @@ public class VentaDiariaService : IVentaDiariaService
 
         return true;
     }
+
+    public async Task<VentaMensualResumenDto> GetResumenMensualAsync()
+    {
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var inicioMesActual = new DateOnly(hoy.Year, hoy.Month, 1);
+        var inicioMesAnterior = inicioMesActual.AddMonths(-1);
+        var finMesAnterior = inicioMesActual.AddDays(-1);
+
+        var totalActual = await _context.VentasDiarias
+            .AsNoTracking()
+            .Where(v => v.Fecha >= inicioMesActual && v.Fecha <= hoy)
+            .SumAsync(v => (decimal?)v.Total) ?? 0m;
+
+        var totalAnterior = await _context.VentasDiarias
+            .AsNoTracking()
+            .Where(v => v.Fecha >= inicioMesAnterior && v.Fecha <= finMesAnterior)
+            .SumAsync(v => (decimal?)v.Total) ?? 0m;
+
+        decimal porcentajeCambio = 0m;
+        if (totalAnterior != 0)
+            porcentajeCambio = Math.Round(((totalActual - totalAnterior) / totalAnterior) * 100, 2);
+
+        var cultura = new System.Globalization.CultureInfo("es-ES");
+
+        return new VentaMensualResumenDto
+        {
+            Mes = hoy.ToString("MMM yyyy", cultura),
+            MesAnterior = inicioMesAnterior.ToString("MMM yyyy", cultura),
+            TotalMesActual = totalActual,
+            TotalMesAnterior = totalAnterior,
+            PorcentajeCambio = Math.Abs(porcentajeCambio),
+            EsAumento = porcentajeCambio >= 0
+        };
+    }
 }

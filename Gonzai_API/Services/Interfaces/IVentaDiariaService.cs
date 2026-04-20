@@ -11,4 +11,5 @@ public interface IVentaDiariaService
     Task<VentaDiariaResponseDto> CreateAsync(VentaDiariaCreateDto dto);
     Task<VentaDiariaResponseDto?> UpdateAsync(int id, VentaDiariaUpdateDto dto);
     Task<bool> DeleteAsync(int id);
+    Task<VentaMensualResumenDto> GetResumenMensualAsync();
 }

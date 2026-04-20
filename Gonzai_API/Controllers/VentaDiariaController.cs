@@ -25,6 +25,14 @@ public class VentaDiariaController : ControllerBase
         return Ok(ventas);
     }
 
+    // GET: api/ventadiaria/resumen-mensual
+    [HttpGet("resumen-mensual")]
+    public async Task<ActionResult<VentaMensualResumenDto>> GetResumenMensual()
+    {
+        var resumen = await _service.GetResumenMensualAsync();
+        return Ok(resumen);
+    }
+
     // GET: api/ventadiaria/fecha/2026-04-14
     [HttpGet("fecha/{fecha}")]
     public async Task<ActionResult<IEnumerable<VentaDiariaResponseDto>>> GetByFecha(DateOnly fecha)
