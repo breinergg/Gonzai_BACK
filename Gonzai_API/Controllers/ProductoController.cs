@@ -97,4 +97,17 @@ public class ProductoController : ControllerBase
         var count = await _service.GetProductosActivosCountAsync();
         return Ok(new { productosActivos = count });
     }
+
+    // PATCH: api/producto/5/desactivar
+    [HttpPatch("{id:int}/desactivar")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Desactivar(int id)
+    {
+        var resultado = await _service.DesactivarAsync(id);
+
+        if (!resultado)
+            return NotFound(new { message = $"Producto con Id {id} no encontrado o ya está inactivo." });
+
+        return NoContent();
+    }
 }

@@ -119,4 +119,18 @@ public class ProductoService : IProductoService
             .AsNoTracking()
             .CountAsync(p => p.Activo);
     }
+
+    public async Task<bool> DesactivarAsync(int id)
+    {
+        var producto = await _context.Productos.FindAsync(id);
+
+        if (producto is null) return false;
+        if (!producto.Activo) return false;
+
+        producto.Activo = false;
+        producto.FechaActualizacion = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
 }

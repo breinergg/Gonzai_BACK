@@ -36,8 +36,7 @@ public class MappingConfig : IRegister
         // Producto: mapear nombre de categoria desde navigation property
         config.NewConfig<Producto, ProductoResponseDto>()
             .Map(dest => dest.CategoriaNombre, src => src.Categoria != null ? src.Categoria.Nombre : null);
-        config.NewConfig<ProductoCreateDto, Producto>()
-            .Ignore(dest => dest.StockActual);
+        config.NewConfig<ProductoCreateDto, Producto>();
         config.NewConfig<ProductoUpdateDto, Producto>();
 
         // MovimientoCliente: mapear nombre del cliente desde navigation property
