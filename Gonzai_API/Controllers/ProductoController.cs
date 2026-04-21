@@ -89,4 +89,12 @@ public class ProductoController : ControllerBase
 
         return NoContent();
     }
+
+    // GET: api/producto/count
+    [HttpGet("count")]
+    public async Task<ActionResult<int>> GetProductosActivosCount()
+    {
+        var count = await _service.GetProductosActivosCountAsync();
+        return Ok(new { productosActivos = count });
+    }
 }

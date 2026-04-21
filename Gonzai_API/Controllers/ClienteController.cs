@@ -72,4 +72,40 @@ public class ClienteController : ControllerBase
 
         return NoContent();
     }
+
+    // GET: api/cliente/count-con-deuda
+    [HttpGet("count-con-deuda")]
+    public async Task<ActionResult<int>> GetClientesActivosConDeudaCount()
+    {
+        var count = await _service.GetClientesActivosConDeudaCountAsync();
+        return Ok(new { clientesConDeuda = count });
+    }
+
+    // GET: api/cliente/count
+    [HttpGet("count")]
+    public async Task<ActionResult<int>> GetClientesActivosCount()
+    {
+        var count = await _service.GetClientesActivosCountAsync();
+        return Ok(new { clientesActivos = count });
+    }
+
+    // GET: api/cliente/total-deuda
+    [HttpGet("total-deuda")]
+    public async Task<ActionResult<decimal>> GetTotalDeudaClientesActivos()
+    {
+        var total = await _service.GetTotalDeudaClientesActivosAsync();
+        return Ok(new { totalDeuda = total });
+    }
+
+    // GET: api/cliente/mayor-deuda
+    [HttpGet("mayor-deuda")]
+    public async Task<ActionResult<ClienteMayorDeudaDto>> GetClienteConMayorDeuda()
+    {
+        var cliente = await _service.GetClienteConMayorDeudaAsync();
+
+        if (cliente is null)
+            return NotFound(new { message = "No se encontraron registros de deuda." });
+
+        return Ok(cliente);
+    }
 }

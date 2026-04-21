@@ -10,4 +10,5 @@ public interface IProductoService
     Task<ProductoResponseDto> CreateAsync(ProductoCreateDto dto);
     Task<ProductoResponseDto?> UpdateAsync(int id, ProductoUpdateDto dto);
     Task<bool> DeleteAsync(int id);
+    Task<int> GetProductosActivosCountAsync();
 }

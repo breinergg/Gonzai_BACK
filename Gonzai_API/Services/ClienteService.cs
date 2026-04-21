@@ -84,4 +84,48 @@ public class ClienteService : IClienteService
 
         return true;
     }
+
+    public async Task<ClienteMayorDeudaDto?> GetClienteConMayorDeudaAsync()
+    {
+        var resultado = await _context.MovimientosCliente
+            .AsNoTracking()
+            .Where(m => m.TipoMovimiento.ToLower() == "deuda")
+            .GroupBy(m => new { m.ClienteId, m.Cliente.Nombre, m.Cliente.Telefono })
+            .Select(g => new ClienteMayorDeudaDto
+            {
+                Id = g.Key.ClienteId,
+                Nombre = g.Key.Nombre,
+                Telefono = g.Key.Telefono,
+                TotalDeuda = g.Sum(m => m.Valor)
+            })
+            .OrderByDescending(r => r.TotalDeuda)
+            .FirstOrDefaultAsync();
+
+        return resultado;
+    }
+
+    public async Task<decimal> GetTotalDeudaClientesActivosAsync()
+    {
+        return await _context.MovimientosCliente
+            .AsNoTracking()
+            .Where(m => m.TipoMovimiento.ToLower() == "deuda" && m.Cliente.Activo)
+            .SumAsync(m => m.Valor);
+    }
+
+    public async Task<int> GetClientesActivosConDeudaCountAsync()
+    {
+        return await _context.MovimientosCliente
+            .AsNoTracking()
+            .Where(m => m.TipoMovimiento.ToLower() == "deuda" && m.Cliente.Activo)
+            .Select(m => m.ClienteId)
+            .Distinct()
+            .CountAsync();
+    }
+
+    public async Task<int> GetClientesActivosCountAsync()
+    {
+        return await _context.Clientes
+            .AsNoTracking()
+            .CountAsync(c => c.Activo);
+    }
 }

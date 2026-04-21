@@ -112,4 +112,11 @@ public class ProductoService : IProductoService
 
         return true;
     }
+
+    public async Task<int> GetProductosActivosCountAsync()
+    {
+        return await _context.Productos
+            .AsNoTracking()
+            .CountAsync(p => p.Activo);
+    }
 }
