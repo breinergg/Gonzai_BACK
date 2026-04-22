@@ -8,7 +8,7 @@ public class MovimientoClienteCreateDto
     public int ClienteId { get; set; }
 
     [Required(ErrorMessage = "El tipo de movimiento es obligatorio.")]
-    [MaxLength(20, ErrorMessage = "El tipo de movimiento no puede superar 20 caracteres.")]
+    [RegularExpression("^(deuda|abono)$", ErrorMessage = "El tipo de movimiento solo puede ser 'deuda' o 'abono'.")]
     public string TipoMovimiento { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El valor es obligatorio.")]

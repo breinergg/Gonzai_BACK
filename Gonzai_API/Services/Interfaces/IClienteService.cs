@@ -14,4 +14,5 @@ public interface IClienteService
     Task<decimal> GetTotalDeudaClientesActivosAsync();
     Task<int> GetClientesActivosConDeudaCountAsync();
     Task<int> GetClientesActivosCountAsync();
+    Task<ClienteSaldoDto?> GetSaldoByClienteIdAsync(int clienteId);
 }

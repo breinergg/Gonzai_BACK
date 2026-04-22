@@ -108,4 +108,17 @@ public class ClienteController : ControllerBase
 
         return Ok(cliente);
     }
+
+    // GET: api/cliente/5/saldo
+    [HttpGet("{id:int}/saldo")]
+    public async Task<ActionResult<ClienteSaldoDto>> GetSaldo(int id)
+    {
+        var saldo = await _service.GetSaldoByClienteIdAsync(id);
+
+        if (saldo is null)
+            return NotFound(new { message = $"Cliente con Id {id} no encontrado." });
+
+        return Ok(saldo);
+    }
+
 }

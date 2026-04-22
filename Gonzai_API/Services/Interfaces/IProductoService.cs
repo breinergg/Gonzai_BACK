@@ -11,5 +11,4 @@ public interface IProductoService
     Task<ProductoResponseDto?> UpdateAsync(int id, ProductoUpdateDto dto);
     Task<bool> DeleteAsync(int id);
     Task<int> GetProductosActivosCountAsync();
-    Task<bool> DesactivarAsync(int id);
 }

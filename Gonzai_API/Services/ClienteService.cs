@@ -128,4 +128,36 @@ public class ClienteService : IClienteService
             .AsNoTracking()
             .CountAsync(c => c.Activo);
     }
+
+    public async Task<ClienteSaldoDto?> GetSaldoByClienteIdAsync(int clienteId)
+    {
+        var cliente = await _context.Clientes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == clienteId);
+
+        if (cliente is null) return null;
+
+        var movimientos = await _context.MovimientosCliente
+            .AsNoTracking()
+            .Where(m => m.ClienteId == clienteId)
+            .ToListAsync();
+
+        var totalDeuda = movimientos
+            .Where(m => m.TipoMovimiento.ToLower() == "deuda")
+            .Sum(m => m.Valor);
+
+        var totalAbonos = movimientos
+            .Where(m => m.TipoMovimiento.ToLower() == "abono")
+            .Sum(m => m.Valor);
+
+        return new ClienteSaldoDto
+        {
+            ClienteId = cliente.Id,
+            Nombre = cliente.Nombre,
+            TotalDeuda = totalDeuda,
+            TotalAbonos = totalAbonos,
+            Saldo = totalDeuda - totalAbonos
+        };
+    }
+
 }
