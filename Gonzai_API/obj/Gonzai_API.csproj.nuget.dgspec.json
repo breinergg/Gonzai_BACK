@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\Gonzai_API.csproj": {}
+    "c:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\Gonzai_API.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\Gonzai_API.csproj": {
+    "c:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\Gonzai_API.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\Gonzai_API.csproj",
+        "projectUniqueName": "c:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\Gonzai_API.csproj",
         "projectName": "Gonzai_API",
-        "projectPath": "C:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\Gonzai_API.csproj",
+        "projectPath": "c:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\Gonzai_API.csproj",
         "packagesPath": "C:\\Users\\Practicante\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\obj\\",
+        "outputPath": "c:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files\\DevExpress 22.1\\Components\\Offline Packages"
