@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "thntW5baauI=",
+  "dgSpecHash": "VvfDBQ8B9qw=",
   "success": true,
-  "projectFilePath": "c:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\Gonzai_API.csproj",
+  "projectFilePath": "C:\\Users\\Practicante\\Desktop\\Gonzai_BACK\\Gonzai_API\\Gonzai_API.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Practicante\\.nuget\\packages\\bcrypt.net-next\\4.1.0\\bcrypt.net-next.4.1.0.nupkg.sha512",
     "C:\\Users\\Practicante\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",

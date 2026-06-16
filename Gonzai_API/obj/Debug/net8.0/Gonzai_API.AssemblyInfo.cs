@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Gonzai_API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+394d1a834fdde72da5a61093ad8e3a40fee78e1e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+70866aa69049fce27444712cf8613011eeb959bd")]
 [assembly: System.Reflection.AssemblyProductAttribute("Gonzai_API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Gonzai_API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
