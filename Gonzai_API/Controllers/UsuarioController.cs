@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Gonzai_API.DTOs.Usuario;
 using Gonzai_API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -81,6 +82,29 @@ public class UsuarioController : ControllerBase
                 return NotFound(new { message = $"Usuario con Id {id} no encontrado." });
 
             return Ok(usuario);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    // PATCH: api/usuario/5/cambiar-password
+    [HttpPatch("{id:int}/cambiar-password")]
+    public async Task<IActionResult> CambiarPassword(int id, [FromBody] CambiarPasswordDto dto)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var isAdmin = User.IsInRole("Admin");
+
+        if (!isAdmin && userIdClaim != id.ToString())
+            return Forbid();
+
+        try
+        {
+            var resultado = await _service.CambiarPasswordAsync(id, dto);
+            if (!resultado)
+                return NotFound(new { message = $"Usuario con Id {id} no encontrado." });
+            return NoContent();
         }
         catch (InvalidOperationException ex)
         {

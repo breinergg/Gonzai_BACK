@@ -102,6 +102,20 @@ public class UsuarioService : IUsuarioService
         return new TokenResponseDto { Token = token, Usuario = usuarioDto };
     }
 
+    public async Task<bool> CambiarPasswordAsync(int id, CambiarPasswordDto dto)
+    {
+        var usuario = await _context.Usuarios.FindAsync(id);
+        if (usuario is null) return false;
+
+        if (!BCrypt.Net.BCrypt.Verify(dto.PasswordActual, usuario.PasswordHash))
+            throw new InvalidOperationException("La contraseña actual es incorrecta.");
+
+        usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NuevaPassword);
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
     private string GenerarToken(Usuario usuario)
     {
         var key = new SymmetricSecurityKey(
