@@ -87,17 +87,23 @@ public class ClienteService : IClienteService
 
     public async Task<ClienteMayorDeudaDto?> GetClienteConMayorDeudaAsync()
     {
+        // Agrupa todos los movimientos por cliente y calcula saldo real:
+        // saldo = suma(deudas) - suma(abonos)
+        // Solo retorna clientes activos con saldo > 0
         var resultado = await _context.MovimientosCliente
             .AsNoTracking()
-            .Where(m => m.TipoMovimiento.ToLower() == "deuda")
+            .Where(m => m.Cliente.Activo)
             .GroupBy(m => new { m.ClienteId, m.Cliente.Nombre, m.Cliente.Telefono })
             .Select(g => new ClienteMayorDeudaDto
             {
-                Id = g.Key.ClienteId,
-                Nombre = g.Key.Nombre,
+                Id       = g.Key.ClienteId,
+                Nombre   = g.Key.Nombre,
                 Telefono = g.Key.Telefono,
-                TotalDeuda = g.Sum(m => m.Valor)
+                TotalDeuda = g.Sum(m =>
+                    m.TipoMovimiento.ToLower() == "deuda"  ?  m.Valor :
+                    m.TipoMovimiento.ToLower() == "abono"  ? -m.Valor : 0)
             })
+            .Where(r => r.TotalDeuda > 0)
             .OrderByDescending(r => r.TotalDeuda)
             .FirstOrDefaultAsync();
 
@@ -106,20 +112,35 @@ public class ClienteService : IClienteService
 
     public async Task<decimal> GetTotalDeudaClientesActivosAsync()
     {
-        return await _context.MovimientosCliente
+        // Suma neta: deudas menos abonos de todos los clientes activos
+        var movimientos = await _context.MovimientosCliente
             .AsNoTracking()
-            .Where(m => m.TipoMovimiento.ToLower() == "deuda" && m.Cliente.Activo)
-            .SumAsync(m => m.Valor);
+            .Where(m => m.Cliente.Activo)
+            .Select(m => new { m.TipoMovimiento, m.Valor })
+            .ToListAsync();
+
+        return movimientos.Sum(m =>
+            m.TipoMovimiento.ToLower() == "deuda" ?  m.Valor :
+            m.TipoMovimiento.ToLower() == "abono" ? -m.Valor : 0);
     }
 
     public async Task<int> GetClientesActivosConDeudaCountAsync()
     {
-        return await _context.MovimientosCliente
+        // Cuenta solo clientes cuyo saldo neto (deuda - abonos) es mayor a cero
+        var saldosPorCliente = await _context.MovimientosCliente
             .AsNoTracking()
-            .Where(m => m.TipoMovimiento.ToLower() == "deuda" && m.Cliente.Activo)
-            .Select(m => m.ClienteId)
-            .Distinct()
-            .CountAsync();
+            .Where(m => m.Cliente.Activo)
+            .GroupBy(m => m.ClienteId)
+            .Select(g => new
+            {
+                ClienteId = g.Key,
+                Saldo     = g.Sum(m =>
+                    m.TipoMovimiento.ToLower() == "deuda" ?  m.Valor :
+                    m.TipoMovimiento.ToLower() == "abono" ? -m.Valor : 0)
+            })
+            .ToListAsync();
+
+        return saldosPorCliente.Count(s => s.Saldo > 0);
     }
 
     public async Task<int> GetClientesActivosCountAsync()
@@ -158,6 +179,42 @@ public class ClienteService : IClienteService
             TotalAbonos = totalAbonos,
             Saldo = totalDeuda - totalAbonos
         };
+    }
+
+    public async Task<IEnumerable<ClienteResponseDto>> SearchActivosByNombreAsync(string filtro, int limit = 20)
+    {
+        if (string.IsNullOrWhiteSpace(filtro))
+            return await GetAllActivosAsync();
+
+        var clientes = await _context.Clientes
+            .AsNoTracking()
+            .Where(c => c.Activo && EF.Functions.ILike(c.Nombre, $"%{filtro.Trim()}%"))
+            .OrderBy(c => c.Nombre)
+            .Take(limit)
+            .ToListAsync();
+
+        return _mapper.Map<IEnumerable<ClienteResponseDto>>(clientes);
+    }
+
+    public async Task<IEnumerable<ClienteSaldoDto>> SearchSaldosByNombreAsync(string nombre, int limit = 10)
+    {
+        var clientes = await _context.Clientes
+            .AsNoTracking()
+            .Where(c => c.Activo && EF.Functions.ILike(c.Nombre, $"%{nombre.Trim()}%"))
+            .OrderBy(c => c.Nombre)
+            .Take(limit)
+            .ToListAsync();
+
+        var saldos = new List<ClienteSaldoDto>();
+
+        foreach (var cliente in clientes)
+        {
+            var saldo = await GetSaldoByClienteIdAsync(cliente.Id);
+            if (saldo is not null)
+                saldos.Add(saldo);
+        }
+
+        return saldos;
     }
 
 }

@@ -11,4 +11,5 @@ public interface IProductoService
     Task<ProductoResponseDto?> UpdateAsync(int id, ProductoUpdateDto dto);
     Task<bool> DeleteAsync(int id);
     Task<int> GetProductosActivosCountAsync();
+    Task<IEnumerable<ProductoResponseDto>> SearchAsync(string? nombre, bool soloActivos = true, int limit = 20);
 }

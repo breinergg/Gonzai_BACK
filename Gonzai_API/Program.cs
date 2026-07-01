@@ -2,12 +2,15 @@ using System.Text;
 using Gonzai_API.Data;
 using Gonzai_API.Mapping;
 using Gonzai_API.Services;
+using Gonzai_API.Services.AI;
+using Gonzai_API.Services.AI.Functions;
 using Gonzai_API.Services.Interfaces;
 using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +18,33 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name         = "Authorization",
+        Type         = SecuritySchemeType.Http,
+        Scheme       = "Bearer",
+        BearerFormat = "JWT",
+        In           = ParameterLocation.Header,
+        Description  = "Pega el token JWT de POST /api/usuario/login (sin escribir 'Bearer')."
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id   = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -25,6 +54,27 @@ var mapsterConfig = TypeAdapterConfig.GlobalSettings;
 mapsterConfig.Scan(typeof(MappingConfig).Assembly);
 builder.Services.AddSingleton(mapsterConfig);
 builder.Services.AddScoped<IMapper, ServiceMapper>();
+
+// AI
+builder.Services.AddHttpClient("Gemini", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+
+builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarSaldoClienteHandler>();
+builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarClientesHandler>();
+builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarProductosHandler>();
+builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarInventarioHandler>();
+builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarVentasDiariasHandler>();
+builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarMovimientosClienteHandler>();
+builder.Services.AddScoped<IGeminiFunctionDispatcher, GeminiFunctionDispatcher>();
+builder.Services.AddScoped<IAIService>(sp =>
+    new GeminiService(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("Gemini"),
+        sp.GetRequiredService<IConfiguration>(),
+        sp.GetRequiredService<ILogger<GeminiService>>(),
+        sp.GetRequiredService<IGeminiFunctionDispatcher>()
+    ));
 
 // Services
 builder.Services.AddScoped<ICategoriaService, CategoriaService>();

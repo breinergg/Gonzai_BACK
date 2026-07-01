@@ -41,6 +41,28 @@ public class MovimientoInventarioService : IMovimientoInventarioService
         return _mapper.Map<IEnumerable<MovimientoInventarioResponseDto>>(movimientos);
     }
 
+    public async Task<IEnumerable<MovimientoInventarioResponseDto>> GetRecentAsync(
+        int? productoId, string? tipo, int limit = 50)
+    {
+        var query = _context.MovimientosInventario
+            .AsNoTracking()
+            .Include(m => m.Producto)
+            .AsQueryable();
+
+        if (productoId.HasValue)
+            query = query.Where(m => m.ProductoId == productoId.Value);
+
+        if (!string.IsNullOrWhiteSpace(tipo))
+            query = query.Where(m => m.TipoMovimiento.ToLower() == tipo.Trim().ToLower());
+
+        var movimientos = await query
+            .OrderByDescending(m => m.Fecha)
+            .Take(limit)
+            .ToListAsync();
+
+        return _mapper.Map<IEnumerable<MovimientoInventarioResponseDto>>(movimientos);
+    }
+
     public async Task<MovimientoInventarioResponseDto?> GetByIdAsync(int id)
     {
         var movimiento = await _context.MovimientosInventario

@@ -52,8 +52,8 @@ public class ChatLogController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ChatLogResponseDto>> Create([FromBody] ChatLogCreateDto dto)
     {
-        var respuesta = await _aiService.GenerarRespuestaAsync(dto.Pregunta);
-        var log = await _chatLogService.CreateAsync(dto, respuesta);
+        var resultado = await _aiService.GenerarRespuestaAsync(new AiChatRequest(dto.Pregunta));
+        var log = await _chatLogService.CreateAsync(dto, resultado.Respuesta);
 
         return CreatedAtAction(nameof(GetById), new { id = log.Id }, log);
     }

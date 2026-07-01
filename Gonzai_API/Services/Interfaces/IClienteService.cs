@@ -15,4 +15,6 @@ public interface IClienteService
     Task<int> GetClientesActivosConDeudaCountAsync();
     Task<int> GetClientesActivosCountAsync();
     Task<ClienteSaldoDto?> GetSaldoByClienteIdAsync(int clienteId);
+    Task<IEnumerable<ClienteResponseDto>> SearchActivosByNombreAsync(string filtro, int limit = 20);
+    Task<IEnumerable<ClienteSaldoDto>> SearchSaldosByNombreAsync(string nombre, int limit = 10);
 }

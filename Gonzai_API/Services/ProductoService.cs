@@ -119,4 +119,25 @@ public class ProductoService : IProductoService
             .AsNoTracking()
             .CountAsync(p => p.Activo);
     }
+
+    public async Task<IEnumerable<ProductoResponseDto>> SearchAsync(string? nombre, bool soloActivos = true, int limit = 20)
+    {
+        var query = _context.Productos
+            .AsNoTracking()
+            .Include(p => p.Categoria)
+            .AsQueryable();
+
+        if (soloActivos)
+            query = query.Where(p => p.Activo);
+
+        if (!string.IsNullOrWhiteSpace(nombre))
+            query = query.Where(p => EF.Functions.ILike(p.Nombre, $"%{nombre.Trim()}%"));
+
+        var productos = await query
+            .OrderBy(p => p.Nombre)
+            .Take(limit)
+            .ToListAsync();
+
+        return _mapper.Map<IEnumerable<ProductoResponseDto>>(productos);
+    }
 }

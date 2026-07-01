@@ -50,6 +50,20 @@ public class ChatLogService : IChatLogService
         return _mapper.Map<ChatLogResponseDto>(log);
     }
 
+    public async Task<IEnumerable<ChatLogResponseDto>> GetRecentByUsuarioIdAsync(int usuarioId, int limit = 10)
+    {
+        var logs = await _context.ChatLogs
+            .AsNoTracking()
+            .Where(c => c.UsuarioId == usuarioId)
+            .OrderByDescending(c => c.Fecha)
+            .Take(limit)
+            .ToListAsync();
+
+        logs.Reverse();
+
+        return _mapper.Map<IEnumerable<ChatLogResponseDto>>(logs);
+    }
+
     public async Task<ChatLogResponseDto> CreateAsync(ChatLogCreateDto dto, string respuesta)
     {
         var log = _mapper.Map<ChatLog>(dto);
