@@ -29,10 +29,20 @@ public sealed class ConsultarProductosHandler : GeminiFunctionHandlerBase
             {
                 p.Id,
                 p.Nombre,
+                p.Marca,
                 categoria = p.CategoriaNombre,
                 p.PrecioVenta,
-                p.PrecioCompra,
-                p.StockActual
+                p.StockTotal,
+                variantes = p.Variantes.Select(v => new
+                {
+                    varianteId = v.Id,
+                    v.Talla,
+                    v.Color,
+                    v.Sku,
+                    v.PrecioVenta,
+                    ultimoCosto = v.PrecioCompra,
+                    v.StockActual
+                })
             })
         }, new { limit = MaxResultados, soloActivos });
     }

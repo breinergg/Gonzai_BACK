@@ -7,7 +7,7 @@ public class ClienteMayorDeudaDto
     public string? Telefono { get; set; }
 
     /// <summary>
-    /// Saldo pendiente real: suma de deudas menos suma de abonos.
+    /// Suma de los saldos pendientes de las ventas activas del cliente.
     /// </summary>
     public decimal TotalDeuda { get; set; }
 }

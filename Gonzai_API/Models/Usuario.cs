@@ -24,6 +24,5 @@ public class Usuario
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
     public DateTime? FechaActualizacion { get; set; }
     
-    public ICollection<VentaDiaria> VentasDiarias { get; set; } = [];
     public ICollection<ChatLog> ChatLogs { get; set; } = [];
 }

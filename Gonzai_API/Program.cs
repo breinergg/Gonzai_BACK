@@ -64,9 +64,9 @@ builder.Services.AddHttpClient("Gemini", client =>
 builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarSaldoClienteHandler>();
 builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarClientesHandler>();
 builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarProductosHandler>();
+builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarLotesHandler>();
 builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarInventarioHandler>();
-builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarVentasDiariasHandler>();
-builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarMovimientosClienteHandler>();
+builder.Services.AddScoped<IGeminiFunctionHandler, ConsultarVentasHandler>();
 builder.Services.AddScoped<IGeminiFunctionDispatcher, GeminiFunctionDispatcher>();
 builder.Services.AddScoped<IAIService>(sp =>
     new GeminiService(
@@ -80,12 +80,16 @@ builder.Services.AddScoped<IAIService>(sp =>
 builder.Services.AddScoped<ICategoriaService, CategoriaService>();
 builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<IChatLogService, ChatLogService>();
-builder.Services.AddScoped<IMovimientoClienteService, MovimientoClienteService>();
+builder.Services.AddScoped<IInventarioService, InventarioService>();
 builder.Services.AddScoped<IMovimientoInventarioService, MovimientoInventarioService>();
+builder.Services.AddScoped<ILoteService, LoteService>();
 builder.Services.AddScoped<IProductoService, ProductoService>();
+builder.Services.AddScoped<IProveedorService, ProveedorService>();
+builder.Services.AddScoped<ICompraProveedorService, CompraProveedorService>();
+builder.Services.AddScoped<IVentaClienteService, VentaClienteService>();
+builder.Services.AddScoped<IPagoClienteService, PagoClienteService>();
 builder.Services.AddScoped<IPreguntaNoReconocidaService, PreguntaNoReconocidaService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
-builder.Services.AddScoped<IVentaDiariaService, VentaDiariaService>();
 
 // JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -4,11 +4,16 @@ internal static class GeminiToolDefinitions
 {
     public const string SystemPrompt = """
         Eres GonzAI, un asistente de inteligencia artificial para la gestión de un negocio pequeño.
-        Tienes herramientas para consultar clientes, saldos, productos, inventario, ventas diarias y movimientos de clientes.
+        Tienes herramientas para consultar clientes, saldos, productos, inventario, lotes y ventas.
+        Cada venta tiene su propia deuda: un cliente puede deber parte de una venta y parte de otra.
+        Los productos tienen variantes (talla/color); el stock se lleva por variante.
+        Un lote es una compra a proveedor con varias prendas (código como L-2026-0015); su ganancia neta
+        ya descuenta el envío.
 
         Reglas:
         - Usa herramientas antes de responder con números, montos, fechas o nombres de clientes/productos.
-        - Para preguntas sobre deuda, abonos o saldo de un cliente, usa preferentemente consultar_saldo_cliente.
+        - Para preguntas sobre deuda, abonos o saldo de un cliente, usa preferentemente consultar_saldo_cliente
+          y detalla cuánto debe de cada venta.
         - No inventes datos. Si una herramienta devuelve ok=false, explica el error al usuario.
         - Si hay varios clientes con el mismo nombre, pide aclaración al usuario.
         - Responde siempre en español, de forma clara, concisa y amable.
@@ -21,7 +26,7 @@ internal static class GeminiToolDefinitions
         [
             new GeminiFunctionDeclaration(
                 Name:        "consultar_saldo_cliente",
-                Description: "Consulta deuda, abonos y saldo pendiente de un cliente. Úsala cuando pregunten cuánto debe, si ha pagado o su estado de cuenta. Acepta nombre o cliente_id.",
+                Description: "Consulta cuánto ha comprado, pagado y debe un cliente, con la deuda separada por venta. Úsala cuando pregunten cuánto debe, si ha pagado o su estado de cuenta. Acepta nombre o cliente_id.",
                 Parameters: new GeminiFunctionParameters(
                     Type: "object",
                     Properties: new Dictionary<string, GeminiParameterProperty>
@@ -47,12 +52,12 @@ internal static class GeminiToolDefinitions
             ),
             new GeminiFunctionDeclaration(
                 Name:        "consultar_productos",
-                Description: "Consulta productos con precios y stock disponible.",
+                Description: "Consulta productos con su stock total y el stock y precio de cada variante (talla/color).",
                 Parameters: new GeminiFunctionParameters(
                     Type: "object",
                     Properties: new Dictionary<string, GeminiParameterProperty>
                     {
-                        ["nombre"]       = new("string",  "Nombre o parte del nombre del producto."),
+                        ["nombre"]       = new("string",  "Nombre, marca o SKU (o parte) del producto."),
                         ["solo_activos"] = new("boolean", "Si es false, incluye productos inactivos.")
                     },
                     Required: []
@@ -60,7 +65,7 @@ internal static class GeminiToolDefinitions
             ),
             new GeminiFunctionDeclaration(
                 Name:        "consultar_inventario",
-                Description: "Consulta movimientos de inventario (entradas y salidas).",
+                Description: "Consulta movimientos de inventario (entradas por compra a proveedor, salidas por venta y ajustes). Con producto_id también devuelve en qué lotes queda stock de cada variante.",
                 Parameters: new GeminiFunctionParameters(
                     Type: "object",
                     Properties: new Dictionary<string, GeminiParameterProperty>
@@ -72,29 +77,33 @@ internal static class GeminiToolDefinitions
                 )
             ),
             new GeminiFunctionDeclaration(
-                Name:        "consultar_ventas_diarias",
-                Description: "Consulta ventas por fecha, por mes/año o resumen comparativo del mes actual.",
+                Name:        "consultar_lotes",
+                Description: "Consulta lotes (compras a proveedor): unidades compradas, vendidas y disponibles, inversión, envío, ingresos, ganancia neta y si ya se recuperó la inversión. Con codigo o lote_id devuelve el detalle por prenda; sin parámetros lista los lotes.",
                 Parameters: new GeminiFunctionParameters(
                     Type: "object",
                     Properties: new Dictionary<string, GeminiParameterProperty>
                     {
-                        ["fecha"] = new("string",  "Fecha puntual en formato YYYY-MM-DD."),
-                        ["mes"]   = new("integer", "Mes (1-12). Requiere 'anio'."),
-                        ["anio"]  = new("integer", "Año. Requiere 'mes'.")
+                        ["codigo"]         = new("string",  "Código del lote, por ejemplo L-2026-0015."),
+                        ["lote_id"]        = new("integer", "ID del lote (compra)."),
+                        ["solo_con_stock"] = new("boolean", "Si es true, solo lotes que aún tienen prendas disponibles.")
                     },
                     Required: []
                 )
             ),
             new GeminiFunctionDeclaration(
-                Name:        "consultar_movimientos_cliente",
-                Description: "Lista el historial de movimientos (deudas y abonos) de un cliente por ID.",
+                Name:        "consultar_ventas",
+                Description: "Consulta ventas a clientes: por fecha, por mes/año, por cliente o solo las que tienen deuda. Devuelve totales vendidos, cobrados, pendientes y ganancia. Sin parámetros devuelve el resumen comparativo del mes actual.",
                 Parameters: new GeminiFunctionParameters(
                     Type: "object",
                     Properties: new Dictionary<string, GeminiParameterProperty>
                     {
-                        ["cliente_id"] = new("integer", "ID del cliente.")
+                        ["fecha"]           = new("string",  "Fecha puntual en formato YYYY-MM-DD."),
+                        ["mes"]             = new("integer", "Mes (1-12). Requiere 'anio'."),
+                        ["anio"]            = new("integer", "Año. Requiere 'mes'."),
+                        ["cliente_id"]      = new("integer", "ID del cliente para ver solo sus ventas."),
+                        ["solo_pendientes"] = new("boolean", "Si es true, solo ventas con saldo pendiente.")
                     },
-                    Required: ["cliente_id"]
+                    Required: []
                 )
             )
         ])

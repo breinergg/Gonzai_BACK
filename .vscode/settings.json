@@ -10,5 +10,8 @@
             "database": "gonzai",
             "username": "postgres"
         }
+    ],
+    "csharp-dev-tools.solutionViewer.selectedWorkspaceSolutions": [
+        "Gonzai_BACK.sln"
     ]
 }

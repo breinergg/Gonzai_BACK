@@ -1,6 +1,7 @@
 using Gonzai_API.DTOs.AI;
 using Gonzai_API.DTOs.ChatLog;
 using Gonzai_API.DTOs.PreguntaNoReconocida;
+using Gonzai_API.Extensions;
 using Gonzai_API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,13 +31,14 @@ public class AiController : ControllerBase
     [HttpPost("chat")]
     public async Task<ActionResult<ChatResponseDto>> Chat([FromBody] ChatRequestDto dto)
     {
-        var historial = await BuildHistorialAsync(dto);
+        var usuarioId = User.GetUsuarioId();
+        var historial = await BuildHistorialAsync(dto, usuarioId);
 
         var resultado = await _aiService.GenerarRespuestaAsync(
             new AiChatRequest(dto.Pregunta, historial));
 
         var log = await _chatLogService.CreateAsync(
-            new ChatLogCreateDto { UsuarioId = dto.UsuarioId, Pregunta = dto.Pregunta },
+            new ChatLogCreateDto { UsuarioId = usuarioId, Pregunta = dto.Pregunta },
             resultado.Respuesta);
 
         if (resultado.EsNoReconocida)
@@ -52,7 +54,7 @@ public class AiController : ControllerBase
         });
     }
 
-    private async Task<IReadOnlyList<AiChatMessage>?> BuildHistorialAsync(ChatRequestDto dto)
+    private async Task<IReadOnlyList<AiChatMessage>?> BuildHistorialAsync(ChatRequestDto dto, int usuarioId)
     {
         if (dto.Historial is { Count: > 0 })
         {
@@ -64,9 +66,9 @@ public class AiController : ControllerBase
                 .ToList();
         }
 
-        if (dto.UsarHistorialDeBd && dto.UsuarioId.HasValue)
+        if (dto.UsarHistorialDeBd)
         {
-            var logs = await _chatLogService.GetRecentByUsuarioIdAsync(dto.UsuarioId.Value, 10);
+            var logs = await _chatLogService.GetRecentByUsuarioIdAsync(usuarioId, 10);
 
             return logs
                 .SelectMany(l => new[]

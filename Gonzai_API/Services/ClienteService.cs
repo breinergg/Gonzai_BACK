@@ -78,69 +78,45 @@ public class ClienteService : IClienteService
 
         if (cliente is null) return false;
 
-        // Soft delete: preserva historial de movimientos del cliente
+        // Soft delete: preserva historial de ventas y pagos del cliente
         cliente.Activo = false;
         await _context.SaveChangesAsync();
 
         return true;
     }
 
+    // La deuda vive en cada venta: saldo del cliente = suma de SaldoPendiente de sus ventas activas.
+    private IQueryable<VentaCliente> VentasConSaldo() =>
+        _context.VentasCliente
+            .AsNoTracking()
+            .Where(v => v.Estado == EstadosDocumento.Activa && v.SaldoPendiente > 0 && v.Cliente.Activo);
+
     public async Task<ClienteMayorDeudaDto?> GetClienteConMayorDeudaAsync()
     {
-        // Agrupa todos los movimientos por cliente y calcula saldo real:
-        // saldo = suma(deudas) - suma(abonos)
-        // Solo retorna clientes activos con saldo > 0
-        var resultado = await _context.MovimientosCliente
-            .AsNoTracking()
-            .Where(m => m.Cliente.Activo)
-            .GroupBy(m => new { m.ClienteId, m.Cliente.Nombre, m.Cliente.Telefono })
+        return await VentasConSaldo()
+            .GroupBy(v => new { v.ClienteId, v.Cliente.Nombre, v.Cliente.Telefono })
             .Select(g => new ClienteMayorDeudaDto
             {
-                Id       = g.Key.ClienteId,
-                Nombre   = g.Key.Nombre,
-                Telefono = g.Key.Telefono,
-                TotalDeuda = g.Sum(m =>
-                    m.TipoMovimiento.ToLower() == "deuda"  ?  m.Valor :
-                    m.TipoMovimiento.ToLower() == "abono"  ? -m.Valor : 0)
+                Id         = g.Key.ClienteId,
+                Nombre     = g.Key.Nombre,
+                Telefono   = g.Key.Telefono,
+                TotalDeuda = g.Sum(v => v.SaldoPendiente)
             })
-            .Where(r => r.TotalDeuda > 0)
             .OrderByDescending(r => r.TotalDeuda)
             .FirstOrDefaultAsync();
-
-        return resultado;
     }
 
     public async Task<decimal> GetTotalDeudaClientesActivosAsync()
     {
-        // Suma neta: deudas menos abonos de todos los clientes activos
-        var movimientos = await _context.MovimientosCliente
-            .AsNoTracking()
-            .Where(m => m.Cliente.Activo)
-            .Select(m => new { m.TipoMovimiento, m.Valor })
-            .ToListAsync();
-
-        return movimientos.Sum(m =>
-            m.TipoMovimiento.ToLower() == "deuda" ?  m.Valor :
-            m.TipoMovimiento.ToLower() == "abono" ? -m.Valor : 0);
+        return await VentasConSaldo().SumAsync(v => (decimal?)v.SaldoPendiente) ?? 0m;
     }
 
     public async Task<int> GetClientesActivosConDeudaCountAsync()
     {
-        // Cuenta solo clientes cuyo saldo neto (deuda - abonos) es mayor a cero
-        var saldosPorCliente = await _context.MovimientosCliente
-            .AsNoTracking()
-            .Where(m => m.Cliente.Activo)
-            .GroupBy(m => m.ClienteId)
-            .Select(g => new
-            {
-                ClienteId = g.Key,
-                Saldo     = g.Sum(m =>
-                    m.TipoMovimiento.ToLower() == "deuda" ?  m.Valor :
-                    m.TipoMovimiento.ToLower() == "abono" ? -m.Valor : 0)
-            })
-            .ToListAsync();
-
-        return saldosPorCliente.Count(s => s.Saldo > 0);
+        return await VentasConSaldo()
+            .Select(v => v.ClienteId)
+            .Distinct()
+            .CountAsync();
     }
 
     public async Task<int> GetClientesActivosCountAsync()
@@ -158,26 +134,31 @@ public class ClienteService : IClienteService
 
         if (cliente is null) return null;
 
-        var movimientos = await _context.MovimientosCliente
+        var ventas = await _context.VentasCliente
             .AsNoTracking()
-            .Where(m => m.ClienteId == clienteId)
+            .Where(v => v.ClienteId == clienteId && v.Estado == EstadosDocumento.Activa)
+            .OrderBy(v => v.Fecha)
             .ToListAsync();
-
-        var totalDeuda = movimientos
-            .Where(m => m.TipoMovimiento.ToLower() == "deuda")
-            .Sum(m => m.Valor);
-
-        var totalAbonos = movimientos
-            .Where(m => m.TipoMovimiento.ToLower() == "abono")
-            .Sum(m => m.Valor);
 
         return new ClienteSaldoDto
         {
-            ClienteId = cliente.Id,
-            Nombre = cliente.Nombre,
-            TotalDeuda = totalDeuda,
-            TotalAbonos = totalAbonos,
-            Saldo = totalDeuda - totalAbonos
+            ClienteId     = cliente.Id,
+            Nombre        = cliente.Nombre,
+            TotalComprado = ventas.Sum(v => v.Total),
+            TotalPagado   = ventas.Sum(v => v.MontoPagado),
+            Saldo         = ventas.Sum(v => v.SaldoPendiente),
+            VentasPendientes = ventas
+                .Where(v => v.SaldoPendiente > 0)
+                .Select(v => new VentaPendienteDto
+                {
+                    VentaClienteId = v.Id,
+                    Fecha          = v.Fecha,
+                    Total          = v.Total,
+                    MontoPagado    = v.MontoPagado,
+                    SaldoPendiente = v.SaldoPendiente,
+                    EstadoPago     = v.EstadoPago
+                })
+                .ToList()
         };
     }
 
@@ -216,5 +197,4 @@ public class ClienteService : IClienteService
 
         return saldos;
     }
-
 }

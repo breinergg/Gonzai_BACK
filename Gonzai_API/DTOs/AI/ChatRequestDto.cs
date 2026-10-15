@@ -13,15 +13,13 @@ public class ChatMessageDto
 
 public class ChatRequestDto
 {
-    public int? UsuarioId { get; set; }
-
     [Required(ErrorMessage = "La pregunta es obligatoria.")]
     [MaxLength(2000, ErrorMessage = "La pregunta no puede superar los 2000 caracteres.")]
     public string Pregunta { get; set; } = string.Empty;
 
     /// <summary>
-    /// Historial opcional de la conversación. Si no se envía y hay UsuarioId,
-    /// se cargará automáticamente desde ChatLogs.
+    /// Historial opcional de la conversación. Si no se envía, se carga desde ChatLogs
+    /// del usuario autenticado.
     /// </summary>
     public List<ChatMessageDto>? Historial { get; set; }
 

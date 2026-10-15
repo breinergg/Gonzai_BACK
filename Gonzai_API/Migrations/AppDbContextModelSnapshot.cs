@@ -109,7 +109,243 @@ namespace Gonzai_API.Migrations
                     b.ToTable("Cliente");
                 });
 
-            modelBuilder.Entity("Gonzai_API.Models.MovimientoCliente", b =>
+            modelBuilder.Entity("Gonzai_API.Models.CompraProveedor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("CostoEnvio")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaActualizacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaAnulacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Nombre")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NumeroFactura")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("ProveedorId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("SubtotalProductos")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("UsuarioAnulacionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.HasIndex("Fecha");
+
+                    b.HasIndex("ProveedorId");
+
+                    b.HasIndex("UsuarioAnulacionId");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("CompraProveedor", t =>
+                        {
+                            t.HasCheckConstraint("CK_CompraProveedor_CostoEnvio", "\"CostoEnvio\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.CompraProveedorDetalle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Cantidad")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CompraProveedorId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("CostoUnitario")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductoVarianteId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompraProveedorId");
+
+                    b.HasIndex("ProductoVarianteId");
+
+                    b.ToTable("CompraProveedorDetalle");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.ExistenciaLote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CantidadDisponible")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CantidadInicial")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CompraProveedorDetalleId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("CostoUnitario")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("FechaActualizacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaIngreso")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Origen")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<int>("ProductoVarianteId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompraProveedorDetalleId")
+                        .IsUnique();
+
+                    b.HasIndex("ProductoVarianteId", "FechaIngreso");
+
+                    b.ToTable("ExistenciaLote", t =>
+                        {
+                            t.HasCheckConstraint("CK_ExistenciaLote_CantidadDisponible", "\"CantidadDisponible\" >= 0 AND \"CantidadDisponible\" <= \"CantidadInicial\"");
+                        });
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.MovimientoInventario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Cantidad")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CompraProveedorId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("CostoUnitario")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("ExistenciaLoteId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaActualizacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<int>("ProductoVarianteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StockResultante")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TipoMovimiento")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("VentaClienteId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompraProveedorId");
+
+                    b.HasIndex("ExistenciaLoteId");
+
+                    b.HasIndex("Fecha");
+
+                    b.HasIndex("ProductoVarianteId");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("VentaClienteId");
+
+                    b.ToTable("MovimientoInventario");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.PagoCliente", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -124,67 +360,57 @@ namespace Gonzai_API.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<DateTime>("Fecha")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("FechaActualizacion")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("FechaAnulacion")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("TipoMovimiento")
+                    b.Property<string>("MetodoPago")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<decimal>("Valor")
+                    b.Property<decimal>("Monto")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int?>("UsuarioAnulacionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("VentaClienteId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ClienteId");
 
-                    b.ToTable("MovimientoCliente");
-                });
+                    b.HasIndex("Fecha");
 
-            modelBuilder.Entity("Gonzai_API.Models.MovimientoInventario", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
+                    b.HasIndex("UsuarioAnulacionId");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.HasIndex("UsuarioId");
 
-                    b.Property<int>("Cantidad")
-                        .HasColumnType("integer");
+                    b.HasIndex("VentaClienteId");
 
-                    b.Property<string>("Descripcion")
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<DateTime>("Fecha")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("FechaActualizacion")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("FechaCreacion")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("ProductoId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("TipoMovimiento")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductoId");
-
-                    b.ToTable("MovimientoInventario");
+                    b.ToTable("PagoCliente");
                 });
 
             modelBuilder.Entity("Gonzai_API.Models.PreguntaNoReconocida", b =>
@@ -227,10 +453,45 @@ namespace Gonzai_API.Migrations
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Marca")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<decimal?>("PrecioVenta")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoriaId");
+
+                    b.ToTable("Producto");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.ProductoVariante", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("FechaActualizacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal?>("PrecioCompra")
                         .HasColumnType("decimal(18,2)");
@@ -238,14 +499,70 @@ namespace Gonzai_API.Migrations
                     b.Property<decimal?>("PrecioVenta")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("ProductoId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<int>("StockActual")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Talla")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("CategoriaId");
+                    b.HasIndex("Sku")
+                        .IsUnique();
 
-                    b.ToTable("Producto");
+                    b.HasIndex("ProductoId", "Talla", "Color");
+
+                    b.ToTable("ProductoVariante", t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductoVariante_Stock", "\"StockActual\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.Proveedor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Direccion")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Documento")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("FechaActualizacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Proveedor");
                 });
 
             modelBuilder.Entity("Gonzai_API.Models.Usuario", b =>
@@ -292,7 +609,7 @@ namespace Gonzai_API.Migrations
                     b.ToTable("Usuario");
                 });
 
-            modelBuilder.Entity("Gonzai_API.Models.VentaDiaria", b =>
+            modelBuilder.Entity("Gonzai_API.Models.VentaCliente", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -300,30 +617,137 @@ namespace Gonzai_API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("ClienteId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Descripcion")
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
-                    b.Property<DateOnly>("Fecha")
-                        .HasColumnType("date");
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("EstadoPago")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("FechaActualizacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaAnulacion")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<decimal>("MontoPagado")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<decimal>("SaldoPendiente")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("Total")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int?>("UsuarioId")
+                    b.Property<int?>("UsuarioAnulacionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UsuarioId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Fecha");
+
+                    b.HasIndex("UsuarioAnulacionId");
+
                     b.HasIndex("UsuarioId");
 
-                    b.ToTable("VentaDiaria");
+                    b.HasIndex("ClienteId", "Estado");
+
+                    b.ToTable("VentaCliente", t =>
+                        {
+                            t.HasCheckConstraint("CK_VentaCliente_Montos", "\"MontoPagado\" >= 0 AND \"MontoPagado\" <= \"Total\"");
+                        });
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.VentaClienteDetalle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Cantidad")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CompraProveedorSolicitadaId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("CostoTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PrecioVentaUnitario")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductoVarianteId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("VentaClienteId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompraProveedorSolicitadaId");
+
+                    b.HasIndex("ProductoVarianteId");
+
+                    b.HasIndex("VentaClienteId");
+
+                    b.ToTable("VentaClienteDetalle");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.VentaDetalleExistencia", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Cantidad")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("CostoUnitario")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ExistenciaLoteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("VentaClienteDetalleId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExistenciaLoteId");
+
+                    b.HasIndex("VentaClienteDetalleId");
+
+                    b.ToTable("VentaDetalleExistencia");
                 });
 
             modelBuilder.Entity("Gonzai_API.Models.ChatLog", b =>
@@ -336,26 +760,142 @@ namespace Gonzai_API.Migrations
                     b.Navigation("Usuario");
                 });
 
-            modelBuilder.Entity("Gonzai_API.Models.MovimientoCliente", b =>
+            modelBuilder.Entity("Gonzai_API.Models.CompraProveedor", b =>
                 {
-                    b.HasOne("Gonzai_API.Models.Cliente", "Cliente")
-                        .WithMany("MovimientosCliente")
-                        .HasForeignKey("ClienteId")
+                    b.HasOne("Gonzai_API.Models.Proveedor", "Proveedor")
+                        .WithMany("Compras")
+                        .HasForeignKey("ProveedorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Cliente");
+                    b.HasOne("Gonzai_API.Models.Usuario", "UsuarioAnulacion")
+                        .WithMany()
+                        .HasForeignKey("UsuarioAnulacionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Gonzai_API.Models.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Proveedor");
+
+                    b.Navigation("Usuario");
+
+                    b.Navigation("UsuarioAnulacion");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.CompraProveedorDetalle", b =>
+                {
+                    b.HasOne("Gonzai_API.Models.CompraProveedor", "CompraProveedor")
+                        .WithMany("Detalles")
+                        .HasForeignKey("CompraProveedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Gonzai_API.Models.ProductoVariante", "ProductoVariante")
+                        .WithMany()
+                        .HasForeignKey("ProductoVarianteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CompraProveedor");
+
+                    b.Navigation("ProductoVariante");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.ExistenciaLote", b =>
+                {
+                    b.HasOne("Gonzai_API.Models.CompraProveedorDetalle", "CompraProveedorDetalle")
+                        .WithOne("Existencia")
+                        .HasForeignKey("Gonzai_API.Models.ExistenciaLote", "CompraProveedorDetalleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Gonzai_API.Models.ProductoVariante", "ProductoVariante")
+                        .WithMany("Existencias")
+                        .HasForeignKey("ProductoVarianteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CompraProveedorDetalle");
+
+                    b.Navigation("ProductoVariante");
                 });
 
             modelBuilder.Entity("Gonzai_API.Models.MovimientoInventario", b =>
                 {
-                    b.HasOne("Gonzai_API.Models.Producto", "Producto")
-                        .WithMany("MovimientosInventario")
-                        .HasForeignKey("ProductoId")
+                    b.HasOne("Gonzai_API.Models.CompraProveedor", "CompraProveedor")
+                        .WithMany()
+                        .HasForeignKey("CompraProveedorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Gonzai_API.Models.ExistenciaLote", "ExistenciaLote")
+                        .WithMany()
+                        .HasForeignKey("ExistenciaLoteId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Producto");
+                    b.HasOne("Gonzai_API.Models.ProductoVariante", "ProductoVariante")
+                        .WithMany("MovimientosInventario")
+                        .HasForeignKey("ProductoVarianteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Gonzai_API.Models.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Gonzai_API.Models.VentaCliente", "VentaCliente")
+                        .WithMany()
+                        .HasForeignKey("VentaClienteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CompraProveedor");
+
+                    b.Navigation("ExistenciaLote");
+
+                    b.Navigation("ProductoVariante");
+
+                    b.Navigation("Usuario");
+
+                    b.Navigation("VentaCliente");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.PagoCliente", b =>
+                {
+                    b.HasOne("Gonzai_API.Models.Cliente", "Cliente")
+                        .WithMany("Pagos")
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Gonzai_API.Models.Usuario", "UsuarioAnulacion")
+                        .WithMany()
+                        .HasForeignKey("UsuarioAnulacionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Gonzai_API.Models.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Gonzai_API.Models.VentaCliente", "VentaCliente")
+                        .WithMany("Pagos")
+                        .HasForeignKey("VentaClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Usuario");
+
+                    b.Navigation("UsuarioAnulacion");
+
+                    b.Navigation("VentaCliente");
                 });
 
             modelBuilder.Entity("Gonzai_API.Models.Producto", b =>
@@ -368,14 +908,86 @@ namespace Gonzai_API.Migrations
                     b.Navigation("Categoria");
                 });
 
-            modelBuilder.Entity("Gonzai_API.Models.VentaDiaria", b =>
+            modelBuilder.Entity("Gonzai_API.Models.ProductoVariante", b =>
                 {
+                    b.HasOne("Gonzai_API.Models.Producto", "Producto")
+                        .WithMany("Variantes")
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Producto");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.VentaCliente", b =>
+                {
+                    b.HasOne("Gonzai_API.Models.Cliente", "Cliente")
+                        .WithMany("Ventas")
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Gonzai_API.Models.Usuario", "UsuarioAnulacion")
+                        .WithMany()
+                        .HasForeignKey("UsuarioAnulacionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Gonzai_API.Models.Usuario", "Usuario")
-                        .WithMany("VentasDiarias")
+                        .WithMany()
                         .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Cliente");
 
                     b.Navigation("Usuario");
+
+                    b.Navigation("UsuarioAnulacion");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.VentaClienteDetalle", b =>
+                {
+                    b.HasOne("Gonzai_API.Models.CompraProveedor", "CompraProveedorSolicitada")
+                        .WithMany()
+                        .HasForeignKey("CompraProveedorSolicitadaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Gonzai_API.Models.ProductoVariante", "ProductoVariante")
+                        .WithMany()
+                        .HasForeignKey("ProductoVarianteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Gonzai_API.Models.VentaCliente", "VentaCliente")
+                        .WithMany("Detalles")
+                        .HasForeignKey("VentaClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CompraProveedorSolicitada");
+
+                    b.Navigation("ProductoVariante");
+
+                    b.Navigation("VentaCliente");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.VentaDetalleExistencia", b =>
+                {
+                    b.HasOne("Gonzai_API.Models.ExistenciaLote", "ExistenciaLote")
+                        .WithMany()
+                        .HasForeignKey("ExistenciaLoteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Gonzai_API.Models.VentaClienteDetalle", "VentaClienteDetalle")
+                        .WithMany("Consumos")
+                        .HasForeignKey("VentaClienteDetalleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ExistenciaLote");
+
+                    b.Navigation("VentaClienteDetalle");
                 });
 
             modelBuilder.Entity("Gonzai_API.Models.Categoria", b =>
@@ -385,19 +997,53 @@ namespace Gonzai_API.Migrations
 
             modelBuilder.Entity("Gonzai_API.Models.Cliente", b =>
                 {
-                    b.Navigation("MovimientosCliente");
+                    b.Navigation("Pagos");
+
+                    b.Navigation("Ventas");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.CompraProveedor", b =>
+                {
+                    b.Navigation("Detalles");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.CompraProveedorDetalle", b =>
+                {
+                    b.Navigation("Existencia");
                 });
 
             modelBuilder.Entity("Gonzai_API.Models.Producto", b =>
                 {
+                    b.Navigation("Variantes");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.ProductoVariante", b =>
+                {
+                    b.Navigation("Existencias");
+
                     b.Navigation("MovimientosInventario");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.Proveedor", b =>
+                {
+                    b.Navigation("Compras");
                 });
 
             modelBuilder.Entity("Gonzai_API.Models.Usuario", b =>
                 {
                     b.Navigation("ChatLogs");
+                });
 
-                    b.Navigation("VentasDiarias");
+            modelBuilder.Entity("Gonzai_API.Models.VentaCliente", b =>
+                {
+                    b.Navigation("Detalles");
+
+                    b.Navigation("Pagos");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.VentaClienteDetalle", b =>
+                {
+                    b.Navigation("Consumos");
                 });
 #pragma warning restore 612, 618
         }

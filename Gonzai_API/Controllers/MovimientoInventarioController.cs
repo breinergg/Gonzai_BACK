@@ -1,4 +1,5 @@
 using Gonzai_API.DTOs.MovimientoInventario;
+using Gonzai_API.Extensions;
 using Gonzai_API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -45,14 +46,16 @@ public class MovimientoInventarioController : ControllerBase
         return Ok(movimiento);
     }
 
-    // POST: api/movimientoinventario
-    [HttpPost]
-    public async Task<ActionResult<MovimientoInventarioResponseDto>> Create([FromBody] MovimientoInventarioCreateDto dto)
+    // POST: api/movimientoinventario/ajuste
+    // Las entradas por compra y salidas por venta se generan solas; esto es solo para ajustes.
+    [HttpPost("ajuste")]
+    public async Task<ActionResult<IEnumerable<MovimientoInventarioResponseDto>>> CreateAjuste(
+        [FromBody] MovimientoInventarioCreateDto dto)
     {
         try
         {
-            var movimiento = await _service.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = movimiento.Id }, movimiento);
+            var movimientos = await _service.CreateAjusteAsync(dto, User.GetUsuarioId());
+            return StatusCode(StatusCodes.Status201Created, movimientos);
         }
         catch (KeyNotFoundException ex)
         {

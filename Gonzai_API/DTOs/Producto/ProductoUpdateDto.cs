@@ -10,8 +10,8 @@ public class ProductoUpdateDto
 
     public int? CategoriaId { get; set; }
 
-    [Range(0, double.MaxValue, ErrorMessage = "El precio de compra debe ser mayor o igual a 0.")]
-    public decimal? PrecioCompra { get; set; }
+    [MaxLength(50, ErrorMessage = "La marca no puede superar 50 caracteres.")]
+    public string? Marca { get; set; }
 
     [Range(0, double.MaxValue, ErrorMessage = "El precio de venta debe ser mayor o igual a 0.")]
     public decimal? PrecioVenta { get; set; }

@@ -18,5 +18,6 @@ public class Cliente
     public bool Activo { get; set; } = true;
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
     public DateTime? FechaActualizacion { get; set; }
-    public ICollection<MovimientoCliente> MovimientosCliente { get; set; } = [];
+    public ICollection<VentaCliente> Ventas { get; set; } = [];
+    public ICollection<PagoCliente> Pagos { get; set; } = [];
 }
