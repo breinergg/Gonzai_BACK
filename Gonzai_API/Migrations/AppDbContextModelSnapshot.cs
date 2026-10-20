@@ -89,6 +89,10 @@ namespace Gonzai_API.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<DateTime?>("FechaActualizacion")
                         .HasColumnType("timestamp with time zone");
 
@@ -223,6 +227,53 @@ namespace Gonzai_API.Migrations
                     b.ToTable("CompraProveedorDetalle");
                 });
 
+            modelBuilder.Entity("Gonzai_API.Models.ComprobanteEnlace", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ExpiraEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Formato")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("PagoClienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int?>("VentaClienteId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PagoClienteId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("VentaClienteId");
+
+                    b.ToTable("ComprobanteEnlace");
+                });
+
             modelBuilder.Entity("Gonzai_API.Models.ExistenciaLote", b =>
                 {
                     b.Property<int>("Id")
@@ -343,6 +394,55 @@ namespace Gonzai_API.Migrations
                     b.HasIndex("VentaClienteId");
 
                     b.ToTable("MovimientoInventario");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.Negocio", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Ciudad")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("CorreoRespuesta")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("FechaActualizacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FormatoPredeterminado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<byte[]>("Logo")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Mensaje")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NombreComercial")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Negocio");
                 });
 
             modelBuilder.Entity("Gonzai_API.Models.PagoCliente", b =>
@@ -803,6 +903,23 @@ namespace Gonzai_API.Migrations
                     b.Navigation("CompraProveedor");
 
                     b.Navigation("ProductoVariante");
+                });
+
+            modelBuilder.Entity("Gonzai_API.Models.ComprobanteEnlace", b =>
+                {
+                    b.HasOne("Gonzai_API.Models.PagoCliente", "PagoCliente")
+                        .WithMany()
+                        .HasForeignKey("PagoClienteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Gonzai_API.Models.VentaCliente", "VentaCliente")
+                        .WithMany()
+                        .HasForeignKey("VentaClienteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("PagoCliente");
+
+                    b.Navigation("VentaCliente");
                 });
 
             modelBuilder.Entity("Gonzai_API.Models.ExistenciaLote", b =>

@@ -10,6 +10,8 @@ public class MovimientoInventarioResponseDto
     public int ExistenciaId { get; set; }
     /// <summary>Lote (compra) al que pertenecen las unidades movidas, si vienen de una compra.</summary>
     public string? LoteCodigo { get; set; }
+    /// <summary>Origen de la existencia: compra, inventario inicial o ajuste.</summary>
+    public string Origen { get; set; } = string.Empty;
     public string TipoMovimiento { get; set; } = string.Empty;
     public string Motivo { get; set; } = string.Empty;
     public int Cantidad { get; set; }

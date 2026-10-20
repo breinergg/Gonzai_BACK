@@ -13,6 +13,8 @@ public class Cliente
     public string Nombre { get; set; } = string.Empty;
     [MaxLength(20)]
     public string? Telefono { get; set; }
+    [MaxLength(100)]
+    public string? Email { get; set; }
     [MaxLength(150)]
     public string? Direccion { get; set; }
     public bool Activo { get; set; } = true;

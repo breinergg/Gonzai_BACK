@@ -1,9 +1,12 @@
 using System.Text;
+using QuestPDF.Infrastructure;
 using Gonzai_API.Data;
 using Gonzai_API.Mapping;
 using Gonzai_API.Services;
 using Gonzai_API.Services.AI;
 using Gonzai_API.Services.AI.Functions;
+using Gonzai_API.Services.Comprobantes;
+using Gonzai_API.Services.Email;
 using Gonzai_API.Services.Interfaces;
 using Mapster;
 using MapsterMapper;
@@ -11,6 +14,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -88,6 +93,11 @@ builder.Services.AddScoped<IProveedorService, ProveedorService>();
 builder.Services.AddScoped<ICompraProveedorService, CompraProveedorService>();
 builder.Services.AddScoped<IVentaClienteService, VentaClienteService>();
 builder.Services.AddScoped<IPagoClienteService, PagoClienteService>();
+builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
+builder.Services.AddScoped<INegocioService, NegocioService>();
+builder.Services.AddScoped<ComprobantePdfService>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<IComprobanteService, ComprobanteService>();
 builder.Services.AddScoped<IPreguntaNoReconocidaService, PreguntaNoReconocidaService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 
@@ -114,6 +124,7 @@ builder.Services.AddCors(options => {
         policy.WithOrigins("http://localhost:4200", "https://1f15mqrk-4200.use2.devtunnels.ms")
               .AllowAnyMethod()
               .WithHeaders("Content-Type", "Authorization")
+              .WithExposedHeaders("Content-Disposition")
               .AllowCredentials();
     });
 });

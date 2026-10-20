@@ -82,7 +82,7 @@ public class InventarioService : IInventarioService
 
             AgregarMovimiento(variante, consumo.Existencia, TiposMovimientoInventario.Salida, salida.Motivo,
                 consumo.Cantidad, consumo.Existencia.CostoUnitario, salida.UsuarioId, salida.Fecha, salida.Descripcion,
-                venta: salida.Venta);
+                compra: consumo.Existencia.CompraProveedorDetalle?.CompraProveedor, venta: salida.Venta);
         }
 
         return consumos;
@@ -118,7 +118,10 @@ public class InventarioService : IInventarioService
     private async Task<ConsumoExistencia> ConsumirExistenciaEspecificaAsync(
         ProductoVariante variante, int existenciaId, int cantidad, CancellationToken ct)
     {
-        var existencia = await _context.ExistenciasLote.FirstOrDefaultAsync(e => e.Id == existenciaId, ct)
+        var existencia = await _context.ExistenciasLote
+            .Include(e => e.CompraProveedorDetalle)
+                .ThenInclude(d => d!.CompraProveedor)
+            .FirstOrDefaultAsync(e => e.Id == existenciaId, ct)
             ?? throw new KeyNotFoundException($"No se encontró la existencia con Id {existenciaId}.");
 
         if (existencia.ProductoVarianteId != variante.Id)
@@ -136,7 +139,10 @@ public class InventarioService : IInventarioService
     private async Task<List<ConsumoExistencia>> ConsumirFifoAsync(
         ProductoVariante variante, int cantidad, int? compraProveedorId, CancellationToken ct)
     {
-        var query = _context.ExistenciasLote.Where(e => e.ProductoVarianteId == variante.Id);
+        var query = _context.ExistenciasLote
+            .Include(e => e.CompraProveedorDetalle)
+                .ThenInclude(d => d!.CompraProveedor)
+            .Where(e => e.ProductoVarianteId == variante.Id);
 
         string? codigoLote = null;
         if (compraProveedorId is { } compraId)

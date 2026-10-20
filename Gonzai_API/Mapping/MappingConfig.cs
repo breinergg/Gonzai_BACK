@@ -101,6 +101,12 @@ public class MappingConfig : IRegister
             .Map(dest => dest.LoteCodigo,
                 src => src.ExistenciaLote.CompraProveedorDetalle != null
                     ? src.ExistenciaLote.CompraProveedorDetalle.CompraProveedor.Codigo : null)
+            .Map(dest => dest.CompraProveedorId,
+                src => src.CompraProveedorId
+                    ?? (src.ExistenciaLote.CompraProveedorDetalle != null
+                        ? src.ExistenciaLote.CompraProveedorDetalle.CompraProveedorId
+                        : (int?)null))
+            .Map(dest => dest.Origen, src => src.ExistenciaLote.Origen)
             .Map(dest => dest.UsuarioNombre, src => src.Usuario.Nombre);
 
         // ChatLog

@@ -23,6 +23,8 @@ public class AppDbContext : DbContext
     public DbSet<MovimientoInventario> MovimientosInventario => Set<MovimientoInventario>();
     public DbSet<ChatLog> ChatLogs => Set<ChatLog>();
     public DbSet<PreguntaNoReconocida> PreguntasNoReconocidas => Set<PreguntaNoReconocida>();
+    public DbSet<Negocio> Negocios => Set<Negocio>();
+    public DbSet<ComprobanteEnlace> ComprobantesEnlace => Set<ComprobanteEnlace>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -154,6 +156,15 @@ public class AppDbContext : DbContext
             e.HasOne(m => m.Usuario).WithMany()
                 .HasForeignKey(m => m.UsuarioId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(m => m.Fecha);
+        });
+
+        modelBuilder.Entity<ComprobanteEnlace>(e =>
+        {
+            e.HasIndex(c => c.Token).IsUnique();
+            e.HasOne(c => c.VentaCliente).WithMany()
+                .HasForeignKey(c => c.VentaClienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(c => c.PagoCliente).WithMany()
+                .HasForeignKey(c => c.PagoClienteId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 

@@ -1,3 +1,4 @@
+using Gonzai_API.DTOs.Comprobante;
 using Gonzai_API.DTOs.Comun;
 using Gonzai_API.DTOs.PagoCliente;
 using Gonzai_API.Extensions;
@@ -13,10 +14,14 @@ namespace Gonzai_API.Controllers;
 public class PagoClienteController : ControllerBase
 {
     private readonly IPagoClienteService _service;
+    private readonly IComprobanteService _comprobantes;
+    private readonly IConfiguration _config;
 
-    public PagoClienteController(IPagoClienteService service)
+    public PagoClienteController(IPagoClienteService service, IComprobanteService comprobantes, IConfiguration config)
     {
         _service = service;
+        _comprobantes = comprobantes;
+        _config = config;
     }
 
     // GET: api/pagocliente/venta/5
@@ -82,5 +87,69 @@ public class PagoClienteController : ControllerBase
         {
             return UnprocessableEntity(new { message = ex.Message });
         }
+    }
+
+    // GET: api/pagocliente/5/comprobante?formato=media-carta
+    [HttpGet("{id:int}/comprobante")]
+    public async Task<IActionResult> Comprobante(int id, [FromQuery] string? formato)
+    {
+        try
+        {
+            var (pdf, nombre) = await _comprobantes.AbonoPdfAsync(id, formato);
+            return File(pdf, "application/pdf", nombre);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return UnprocessableEntity(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("{id:int}/comprobante/compartir")]
+    public async Task<ActionResult<CompartirComprobanteDto>> Compartir(
+        int id, [FromQuery] string? formato, [FromQuery] bool regenerar = false)
+    {
+        try
+        {
+            return Ok(await _comprobantes.CompartirAbonoAsync(id, formato, regenerar, BasePublica()));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return UnprocessableEntity(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:int}/comprobante/enviar")]
+    public async Task<IActionResult> Enviar(int id, [FromBody] EnviarComprobanteDto dto)
+    {
+        try
+        {
+            await _comprobantes.EnviarAbonoAsync(id, dto.Correo, dto.Formato, BasePublica());
+            return Ok(new { message = $"Comprobante enviado a {dto.Correo}." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return UnprocessableEntity(new { message = ex.Message });
+        }
+    }
+
+    private string BasePublica()
+    {
+        var configurada = _config["Comprobantes:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(configurada))
+            return configurada.TrimEnd('/');
+
+        return $"{Request.Scheme}://{Request.Host}";
     }
 }
