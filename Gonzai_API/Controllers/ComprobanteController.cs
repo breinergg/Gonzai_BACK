@@ -8,9 +8,9 @@ namespace Gonzai_API.Controllers;
 [Route("api/comprobantes")]
 public class ComprobanteController : ControllerBase
 {
-    private readonly IComprobanteService _service;
+    private readonly IComprobantePublicoService _service;
 
-    public ComprobanteController(IComprobanteService service)
+    public ComprobanteController(IComprobantePublicoService service)
     {
         _service = service;
     }
@@ -18,9 +18,9 @@ public class ComprobanteController : ControllerBase
     // Público: quien tenga el enlace descarga el PDF. El token vence a los 15 días.
     [AllowAnonymous]
     [HttpGet("{token}")]
-    public async Task<IActionResult> Descargar(string token)
+    public async Task<IActionResult> Descargar(string token, CancellationToken ct)
     {
-        var archivo = await _service.PorTokenAsync(token);
+        var archivo = await _service.PorTokenAsync(token, ct);
         if (archivo is null)
             return NotFound(new { message = "El comprobante no existe o el enlace venció." });
 

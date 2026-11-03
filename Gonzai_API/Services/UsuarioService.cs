@@ -1,13 +1,11 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using Gonzai_API.Data;
 using Gonzai_API.DTOs.Usuario;
 using Gonzai_API.Models;
+using Gonzai_API.Models.Plataforma;
 using Gonzai_API.Services.Interfaces;
+using Gonzai_API.Services.Tenancy;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 
 namespace Gonzai_API.Services;
 
@@ -15,13 +13,16 @@ public class UsuarioService : IUsuarioService
 {
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
-    private readonly IConfiguration _configuration;
+    private readonly PlataformaDbContext _catalogo;
+    private readonly ITenantContext _tenant;
 
-    public UsuarioService(AppDbContext context, IMapper mapper, IConfiguration configuration)
+    public UsuarioService(
+        AppDbContext context, IMapper mapper, PlataformaDbContext catalogo, ITenantContext tenant)
     {
-        _context = context;
-        _mapper = mapper;
-        _configuration = configuration;
+        _context  = context;
+        _mapper   = mapper;
+        _catalogo = catalogo;
+        _tenant   = tenant;
     }
 
     public async Task<IEnumerable<UsuarioResponseDto>> GetAllAsync()
@@ -47,19 +48,35 @@ public class UsuarioService : IUsuarioService
 
     public async Task<UsuarioResponseDto> CreateAsync(UsuarioCreateDto dto)
     {
-        var emailEnUso = await _context.Usuarios
-            .AnyAsync(u => u.Email == dto.Email);
+        var email = dto.Email.Trim().ToLowerInvariant();
 
-        if (emailEnUso)
-            throw new InvalidOperationException($"El email '{dto.Email}' ya está registrado.");
+        // Un correo pertenece a una sola empresa, así que la unicidad se comprueba en el
+        // catálogo de la plataforma y no solo dentro de esta base.
+        if (await _catalogo.UsuariosDirectorio.AnyAsync(u => u.Email == email))
+            throw new InvalidOperationException($"El email '{email}' ya está registrado.");
 
-        var usuario = _mapper.Map<Usuario>(dto);
-        usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+        var entrada = new UsuarioDirectorio { Email = email, EmpresaId = _tenant.EmpresaIdRequerido };
+        _catalogo.UsuariosDirectorio.Add(entrada);
+        await _catalogo.SaveChangesAsync();
 
-        _context.Usuarios.Add(usuario);
-        await _context.SaveChangesAsync();
+        try
+        {
+            var usuario = _mapper.Map<Usuario>(dto);
+            usuario.Email        = email;
+            usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
-        return _mapper.Map<UsuarioResponseDto>(usuario);
+            _context.Usuarios.Add(usuario);
+            await _context.SaveChangesAsync();
+
+            return _mapper.Map<UsuarioResponseDto>(usuario);
+        }
+        catch
+        {
+            // Si el usuario no llegó a crearse, el correo no puede quedar reservado.
+            _catalogo.UsuariosDirectorio.Remove(entrada);
+            await _catalogo.SaveChangesAsync();
+            throw;
+        }
     }
 
     public async Task<UsuarioResponseDto?> UpdateAsync(int id, UsuarioUpdateDto dto)
@@ -87,21 +104,6 @@ public class UsuarioService : IUsuarioService
         return true;
     }
 
-    public async Task<TokenResponseDto?> LoginAsync(LoginDto dto)
-    {
-        var usuario = await _context.Usuarios
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email == dto.Email && u.Activo);
-
-        if (usuario is null || !BCrypt.Net.BCrypt.Verify(dto.Password, usuario.PasswordHash))
-            return null;
-
-        var token = GenerarToken(usuario);
-        var usuarioDto = _mapper.Map<UsuarioResponseDto>(usuario);
-
-        return new TokenResponseDto { Token = token, Usuario = usuarioDto };
-    }
-
     public async Task<bool> CambiarPasswordAsync(int id, CambiarPasswordDto dto)
     {
         var usuario = await _context.Usuarios.FindAsync(id);
@@ -114,33 +116,5 @@ public class UsuarioService : IUsuarioService
         await _context.SaveChangesAsync();
 
         return true;
-    }
-
-    private string GenerarToken(Usuario usuario)
-    {
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
-
-        var credenciales = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
-            new Claim(ClaimTypes.Email, usuario.Email),
-            new Claim(ClaimTypes.Role, usuario.Rol),
-            new Claim(ClaimTypes.Name, usuario.Nombre)
-        };
-
-        var expiracion = DateTime.UtcNow.AddMinutes(
-            _configuration.GetValue<int>("Jwt:ExpiresInMinutes"));
-
-        var token = new JwtSecurityToken(
-            issuer: _configuration["Jwt:Issuer"],
-            audience: _configuration["Jwt:Audience"],
-            claims: claims,
-            expires: expiracion,
-            signingCredentials: credenciales);
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

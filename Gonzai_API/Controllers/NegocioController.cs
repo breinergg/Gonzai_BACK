@@ -68,4 +68,19 @@ public class NegocioController : ControllerBase
     [HttpDelete("logo")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<NegocioResponseDto>> QuitarLogo() => Ok(await _service.QuitarLogoAsync());
+
+    /// <summary>
+    /// Configura la clave de Gemini propia de la empresa. A partir de aquí, el asistente de IA
+    /// la usa en vez de la clave compartida de la plataforma y deja de contar para su cupo diario.
+    /// </summary>
+    [HttpPut("ia/gemini")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<NegocioResponseDto>> ConfigurarClaveGemini([FromBody] NegocioGeminiApiKeyDto dto) =>
+        Ok(await _service.ConfigurarClaveGeminiAsync(dto.ApiKey));
+
+    /// <summary>Quita la clave propia: el asistente vuelve a usar la clave compartida de la plataforma.</summary>
+    [HttpDelete("ia/gemini")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<NegocioResponseDto>> QuitarClaveGemini() =>
+        Ok(await _service.QuitarClaveGeminiAsync());
 }

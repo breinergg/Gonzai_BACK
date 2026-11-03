@@ -9,6 +9,7 @@ using Gonzai_API.Models;
 using Gonzai_API.Services.Comprobantes;
 using Gonzai_API.Services.Email;
 using Gonzai_API.Services.Interfaces;
+using Gonzai_API.Services.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gonzai_API.Services;
@@ -21,12 +22,28 @@ public class ComprobanteService : IComprobanteService
     private readonly AppDbContext _context;
     private readonly ComprobantePdfService _pdf;
     private readonly IEmailSender _email;
+    private readonly ITenantContext _tenant;
 
-    public ComprobanteService(AppDbContext context, ComprobantePdfService pdf, IEmailSender email)
+    public ComprobanteService(
+        AppDbContext context, ComprobantePdfService pdf, IEmailSender email, ITenantContext tenant)
     {
         _context = context;
         _pdf = pdf;
         _email = email;
+        _tenant = tenant;
+    }
+
+    /// <summary>
+    /// El token lleva delante el Id de la empresa porque el enlace es público y sin sesión:
+    /// es el único dato que le dice al servidor en qué base de datos buscar el comprobante.
+    /// El resto sigue siendo aleatorio, así que el enlace no se puede adivinar.
+    /// </summary>
+    public static int? EmpresaDelToken(string token)
+    {
+        var separador = token.IndexOf('-');
+        if (separador <= 0) return null;
+
+        return int.TryParse(token[..separador], out var empresaId) ? empresaId : null;
     }
 
     public async Task<(byte[] Pdf, string NombreArchivo)> VentaPdfAsync(int ventaId, string? formato)
@@ -202,8 +219,8 @@ public class ComprobanteService : IComprobanteService
 
         var enlace = new ComprobanteEnlace
         {
-            Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
-                .TrimEnd('=').Replace('+', '-').Replace('/', '_'),
+            Token = $"{_tenant.EmpresaIdRequerido}-{Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+                .TrimEnd('=').Replace('+', '-').Replace('/', '_')}",
             Tipo = tipo,
             VentaClienteId = ventaId,
             PagoClienteId = pagoId,

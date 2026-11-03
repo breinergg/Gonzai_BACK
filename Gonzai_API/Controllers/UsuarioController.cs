@@ -3,7 +3,6 @@ using Gonzai_API.DTOs.Usuario;
 using Gonzai_API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 
 namespace Gonzai_API.Controllers;
 
@@ -17,20 +16,6 @@ public class UsuarioController : ControllerBase
     public UsuarioController(IUsuarioService service)
     {
         _service = service;
-    }
-
-    // POST: api/usuario/login
-    [HttpPost("login")]
-    [AllowAnonymous]
-    [EnableRateLimiting("login")]
-    public async Task<ActionResult<TokenResponseDto>> Login([FromBody] LoginDto dto)
-    {
-        var token = await _service.LoginAsync(dto);
-
-        if (token is null)
-            return Unauthorized(new { message = "Credenciales inválidas." });
-
-        return Ok(token);
     }
 
     // GET: api/usuario

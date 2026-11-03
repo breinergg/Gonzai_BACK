@@ -4,6 +4,7 @@ using Gonzai_API.DTOs.VentaCliente;
 using Gonzai_API.Extensions;
 using Gonzai_API.Models;
 using Gonzai_API.Services.Interfaces;
+using Gonzai_API.Services.Tenancy;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -16,13 +17,15 @@ public class VentaClienteService : IVentaClienteService
     private readonly IMapper _mapper;
     private readonly IInventarioService _inventario;
     private readonly IMemoryCache _cache;
+    private readonly ITenantContext _tenant;
 
-    public VentaClienteService(AppDbContext context, IMapper mapper, IInventarioService inventario, IMemoryCache cache)
+    public VentaClienteService(AppDbContext context, IMapper mapper, IInventarioService inventario, IMemoryCache cache, ITenantContext tenant)
     {
         _context    = context;
         _mapper     = mapper;
         _inventario = inventario;
         _cache      = cache;
+        _tenant     = tenant;
     }
 
     public async Task<PagedResultDto<VentaClienteResponseDto>> GetAllAsync(
@@ -216,7 +219,7 @@ public class VentaClienteService : IVentaClienteService
 
     public async Task<VentaMensualResumenDto> GetResumenMensualAsync()
     {
-        return (await _cache.GetOrCreateAsync("dashboard:resumen-mensual", async entry =>
+        return (await _cache.GetOrCreateAsync(ClavesCache.Dashboard(_tenant.EmpresaIdRequerido, ClavesCache.ResumenMensual), async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
 

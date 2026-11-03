@@ -10,9 +10,11 @@ using Gonzai_API.Services.AI.Functions;
 using Gonzai_API.Services.Comprobantes;
 using Gonzai_API.Services.Email;
 using Gonzai_API.Services.Interfaces;
+using Gonzai_API.Services.Tenancy;
 using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -62,12 +64,36 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddSingleton<DashboardCacheInterceptor>();
-builder.Services.AddDbContext<AppDbContext>((sp, options) =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
-           .AddInterceptors(sp.GetRequiredService<DashboardCacheInterceptor>()));
+// Catálogo de la plataforma: la lista de empresas y a qué empresa pertenece cada correo.
+builder.Services.AddDbContext<PlataformaDbContext>(options =>
+    options.UseNpgsql(TenantStore.CadenaCatalogo(builder.Configuration)));
 
-builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("postgres");
+// Cifra los secretos por empresa (como su clave propia de Gemini). El llavero se guarda en el
+// catálogo (no en memoria ni en disco del contenedor) para que sobreviva a los reinicios:
+// si se perdiera, esos secretos quedarían ilegibles para siempre.
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<PlataformaDbContext>()
+    .SetApplicationName("GonzAI");
+
+builder.Services.AddScoped<TenantContext>();
+builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
+builder.Services.AddScoped<ITenantStore, TenantStore>();
+builder.Services.AddScoped<ITenantDbFactory, TenantDbFactory>();
+builder.Services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
+builder.Services.AddScoped<DashboardCacheInterceptor>();
+
+// Una base de datos por empresa. La conexión sale de la empresa que viene firmada en el token,
+// así que una petición no puede alcanzar los datos de otra empresa ni por error.
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
+    options.UseNpgsql(EF.IsDesignTime
+               // Las herramientas (dotnet ef) construyen el contexto sin ninguna petición de por medio.
+               ? AppDbContextDesignFactory.Cadena()
+               : sp.GetRequiredService<ITenantContext>().CadenaConexionRequerida)
+           .AddInterceptors(sp.GetRequiredService<DashboardCacheInterceptor>()),
+    ServiceLifetime.Scoped, ServiceLifetime.Scoped);
+
+// El health check va contra el catálogo: es la única base que existe siempre, sin sesión.
+builder.Services.AddHealthChecks().AddDbContextCheck<PlataformaDbContext>("postgres");
 
 // Detrás de un proxy inverso (nginx, balanceador) la IP y el esquema reales llegan en X-Forwarded-*.
 // Actívalo solo si la API NO es accesible directamente desde internet; si no, X-Forwarded-For se podría falsificar.
@@ -106,7 +132,8 @@ builder.Services.AddScoped<IAIService>(sp =>
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("Gemini"),
         sp.GetRequiredService<IConfiguration>(),
         sp.GetRequiredService<ILogger<GeminiService>>(),
-        sp.GetRequiredService<IGeminiFunctionDispatcher>()
+        sp.GetRequiredService<IGeminiFunctionDispatcher>(),
+        sp.GetRequiredService<INegocioService>()
     ));
 
 // Services
@@ -126,6 +153,8 @@ builder.Services.AddScoped<INegocioService, NegocioService>();
 builder.Services.AddScoped<ComprobantePdfService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IComprobanteService, ComprobanteService>();
+builder.Services.AddScoped<IComprobantePublicoService, ComprobantePublicoService>();
+builder.Services.AddScoped<IAutenticacionService, AutenticacionService>();
 builder.Services.AddScoped<IPreguntaNoReconocidaService, PreguntaNoReconocidaService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 
@@ -148,14 +177,17 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    // AI Chat: máx. 20 peticiones por usuario cada 60 segundos
+    // AI Chat: máx. N peticiones por usuario cada 60 segundos. El límite es configurable para
+    // poder bajarlo en pruebas (RateLimiting:AiChatPermitLimit). La partición combina empresa y
+    // usuario porque el Id de usuario solo es único dentro de su empresa: sin la empresa, el
+    // usuario 1 de una tienda compartiría cupo con el usuario 1 de otra.
+    var aiChatPermitLimit = builder.Configuration.GetValue("RateLimiting:AiChatPermitLimit", 20);
     options.AddPolicy("ai-chat", context =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                          ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            partitionKey: ParticionChatIa(context),
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 20,
+                PermitLimit = aiChatPermitLimit,
                 Window = TimeSpan.FromSeconds(60),
                 QueueLimit = 0
             }));
@@ -184,6 +216,18 @@ builder.Services.AddRateLimiter(options =>
             retryAfterSeconds = retryAfter
         }, cancellationToken);
     };
+
+    // Clave de partición del chat de IA: empresa + usuario (ambos del token ya validado), o la IP
+    // si la petición aún no está autenticada.
+    static string ParticionChatIa(HttpContext context)
+    {
+        var empresa = context.User.FindFirst(TenantMiddleware.ClaimEmpresa)?.Value;
+        var usuario = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        return empresa is not null && usuario is not null
+            ? $"{empresa}:{usuario}"
+            : context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    }
 });
 
 // JWT Authentication
@@ -243,12 +287,15 @@ if (!app.Environment.IsDevelopment())
 
 app.UseCors("FrontendPolicy");
 
+app.UseAuthentication();
+app.UseMiddleware<TenantMiddleware>();
+app.UseAuthorization();
+
+// Va DESPUÉS de la autenticación: así el límite del chat de IA puede particionar por el usuario
+// (y su empresa) del token. Antes de autenticar, context.User está vacío y todo caería a la IP.
 // Se puede apagar con RateLimiting:Enabled=false (solo para pruebas automatizadas).
 if (app.Configuration.GetValue("RateLimiting:Enabled", true))
     app.UseRateLimiter();
-
-app.UseAuthentication();
-app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health").DisableRateLimiting().AllowAnonymous();

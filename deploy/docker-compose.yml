@@ -1,5 +1,9 @@
 # Despliegue completo de GonzAI: PostgreSQL + API (.NET 8) + Web (Angular servido por nginx).
 #
+# Cada empresa cliente tiene SU PROPIA base de datos. La base "gonzai_catalogo" solo guarda
+# la lista de empresas y a qué empresa pertenece cada correo; los clientes, ventas e inventario
+# de cada una viven en "gonzai_emp_<identificador>", que la API crea al dar de alta la empresa.
+#
 #   cp .env.example .env     # y completa los valores
 #   docker compose up -d --build
 #
@@ -13,13 +17,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: gonzai
+      POSTGRES_DB: gonzai_catalogo
       POSTGRES_USER: gonzai
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}
     volumes:
       - gonzai-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gonzai -d gonzai"]
+      test: ["CMD-SHELL", "pg_isready -U gonzai -d gonzai_catalogo"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -35,11 +39,19 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=gonzai;Username=gonzai;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=gonzai_catalogo;Username=gonzai;Password=${POSTGRES_PASSWORD}
       Jwt__Key: ${JWT_KEY:?Define JWT_KEY en .env (mínimo 32 caracteres)}
       Gemini__ApiKey: ${GEMINI_API_KEY:?Define GEMINI_API_KEY en .env}
-      # Se aplican las migraciones y se crea el primer Admin si la tabla de usuarios está vacía.
+      # Clave para dar de alta empresas (POST /api/plataforma/empresas). Sin ella, esas rutas
+      # quedan cerradas. No es la contraseña de ningún usuario: es la llave del dueño del producto.
+      Plataforma__ApiKey: ${PLATAFORMA_API_KEY:?Define PLATAFORMA_API_KEY en .env}
+      # Al arrancar se migra el catálogo y la base de cada empresa.
       Database__MigrateOnStartup: "true"
+      # Primera empresa. Si ya tienes una base en marcha, pon su nombre en SEED_BASE_EXISTENTE
+      # y se adopta tal cual, sin perder datos ni copiar nada.
+      Seed__Empresa__Nombre: ${SEED_EMPRESA_NOMBRE:-Mi empresa}
+      Seed__Empresa__Slug: ${SEED_EMPRESA_SLUG:-principal}
+      Seed__Empresa__BaseDatosExistente: ${SEED_BASE_EXISTENTE:-}
       Seed__AdminName: ${ADMIN_NAME:-Administrador}
       Seed__AdminEmail: ${ADMIN_EMAIL:?Define ADMIN_EMAIL en .env}
       Seed__AdminPassword: ${ADMIN_PASSWORD:?Define ADMIN_PASSWORD en .env}

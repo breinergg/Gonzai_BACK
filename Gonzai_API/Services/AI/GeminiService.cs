@@ -2,12 +2,18 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Gonzai_API.Services.Interfaces;
+using Gonzai_API.Services.Tenancy;
 
 namespace Gonzai_API.Services.AI;
 
 public class GeminiService : IAIService
 {
     private const string NoReconocidaToken = "[NO_RECONOCIDA]";
+    // Se probó gemini-3.5-flash-lite por su mayor cupo gratis (gemini-2.5-flash-lite ya no admite
+    // cuentas nuevas), pero es un modelo "thinking": con la misma pregunta tardaba 15-30s en vez de
+    // 1-2s, sin que ningún thinkingConfig (budget bajo, nivel "low") lo arreglara. Para un chat en
+    // vivo esa demora no es aceptable, así que se queda gemini-2.5-flash. El cupo diario compartido
+    // se resuelve mejor dejando que cada empresa configure su propia clave de Gemini (Configuración).
     private const string ApiBaseUrl        = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
     private const int MaxIterations        = 5;
     private const int MaxHistorialMensajes = 4; // 4 intercambios = 8 mensajes — menor footprint de tokens
@@ -19,25 +25,31 @@ public class GeminiService : IAIService
     };
 
     private readonly HttpClient _httpClient;
-    private readonly string _apiKey;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<GeminiService> _logger;
     private readonly IGeminiFunctionDispatcher _dispatcher;
+    private readonly INegocioService _negocio;
 
     public GeminiService(
         HttpClient httpClient,
         IConfiguration configuration,
         ILogger<GeminiService> logger,
-        IGeminiFunctionDispatcher dispatcher)
+        IGeminiFunctionDispatcher dispatcher,
+        INegocioService negocio)
     {
-        _httpClient = httpClient;
-        _logger     = logger;
-        _dispatcher = dispatcher;
-        _apiKey     = configuration["Gemini:ApiKey"]
-            ?? throw new InvalidOperationException("La clave 'Gemini:ApiKey' no está configurada en appsettings.");
+        _httpClient    = httpClient;
+        _configuration = configuration;
+        _logger        = logger;
+        _dispatcher    = dispatcher;
+        _negocio       = negocio;
     }
 
     public async Task<AiResult> GenerarRespuestaAsync(AiChatRequest request)
     {
+        // Se resuelve antes que nada: si ninguna de las dos claves existe, es mejor avisarlo
+        // claro que dejar que el chat "no responda" después de varios reintentos.
+        var apiKey = await ResolverClaveAsync();
+
         var contents      = BuildInitialContents(request);
         var executedCalls = new HashSet<string>(StringComparer.Ordinal);
 
@@ -47,7 +59,7 @@ public class GeminiService : IAIService
 
             try
             {
-                geminiResponse = await CallGeminiWithRetryAsync(contents);
+                geminiResponse = await CallGeminiWithRetryAsync(contents, apiKey);
             }
             catch (HttpRequestException ex) when (ex.Message.Contains("429"))
             {
@@ -155,8 +167,27 @@ public class GeminiService : IAIService
         return new AiResult("No pude completar el procesamiento de tu pregunta. Intenta de nuevo.", true);
     }
 
+    /// <summary>
+    /// La clave propia de la empresa tiene prioridad: su consumo (y su plan gratuito de Google)
+    /// corre por cuenta de esa empresa, no de la plataforma. Si no configuró una, se usa la
+    /// clave compartida de la plataforma —la que paga y limita GonzAI—.
+    /// </summary>
+    private async Task<string> ResolverClaveAsync()
+    {
+        var propia = await _negocio.ObtenerClaveGeminiDescifradaAsync();
+        if (!string.IsNullOrWhiteSpace(propia)) return propia;
+
+        var compartida = _configuration["Gemini:ApiKey"];
+        if (!string.IsNullOrWhiteSpace(compartida)) return compartida;
+
+        throw new InvalidOperationException(
+            "El asistente de IA no está configurado para tu empresa. " +
+            "Un administrador puede activarlo con una clave gratuita de Gemini en Configuración.");
+    }
+
     private async Task<GeminiResponse?> CallGeminiWithRetryAsync(
         List<GeminiContent> contents,
+        string apiKey,
         int maxRetries = 3)
     {
         // Delays para el plan gratuito (15 RPM): ventana de 60s
@@ -174,7 +205,7 @@ public class GeminiService : IAIService
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json")
             };
-            request.Headers.Add("x-goog-api-key", _apiKey);
+            request.Headers.Add("x-goog-api-key", apiKey);
             var httpResp = await _httpClient.SendAsync(request);
 
             if (httpResp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
@@ -256,7 +287,12 @@ internal sealed record GeminiContent(
 internal sealed record GeminiPart(
     [property: JsonPropertyName("text")]             string?                 Text             = null,
     [property: JsonPropertyName("functionCall")]     GeminiFunctionCall?     FunctionCall     = null,
-    [property: JsonPropertyName("functionResponse")] GeminiFunctionResponse? FunctionResponse = null
+    [property: JsonPropertyName("functionResponse")] GeminiFunctionResponse? FunctionResponse = null,
+    // Modelos "thinking" (como 3.5-flash-lite) exigen devolver esta firma tal cual en el
+    // siguiente turno junto con cada functionCall, o rechazan la petición con 400. Como esta
+    // clase se reutiliza para deserializar la respuesta y luego reenviarla, basta con mapear
+    // el campo: no hay que tocar la lógica que arma la conversación.
+    [property: JsonPropertyName("thoughtSignature")] string?                 ThoughtSignature = null
 );
 
 internal sealed record GeminiTool(

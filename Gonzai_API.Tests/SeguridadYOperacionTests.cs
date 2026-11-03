@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Gonzai_API.DTOs.Usuario;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -36,7 +37,7 @@ public class SeguridadYOperacionTests
     public async Task Login_con_credenciales_malas_devuelve_401()
     {
         var r = await _api.Anonimo().PostAsJsonAsync("/api/usuario/login",
-            new LoginDto { Email = ApiFixture.AdminEmail, Password = "incorrecta" });
+            new LoginDto { Email = _api.EmpresaA.AdminEmail, Password = "incorrecta" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode);
     }
@@ -50,10 +51,10 @@ public class SeguridadYOperacionTests
         var email = $"vendedor-{Guid.NewGuid():N}@gonzai.local";
         var crear = await admin.PostAsJsonAsync("/api/usuario", new UsuarioCreateDto
         {
-            Nombre = "Vendedor Prueba", Email = email, Password = "Vendedor-123", Rol = "Vendedor"
+            Nombre = "Vendedor Prueba", Email = email, Password = ApiFixture.Password, Rol = "Vendedor"
         });
         crear.EnsureSuccessStatusCode();
-        var vendedor = await _api.ConTokenAsync(email, "Vendedor-123");
+        var vendedor = await _api.ConTokenAsync(email, ApiFixture.Password);
 
         var cliente = await e.CrearClienteAsync();
         var variante = await e.CrearVarianteAsync(5);
@@ -74,13 +75,13 @@ public class SeguridadYOperacionTests
         var email = $"baja-{Guid.NewGuid():N}@gonzai.local";
         var crear = await admin.PostAsJsonAsync("/api/usuario", new UsuarioCreateDto
         {
-            Nombre = "Baja", Email = email, Password = "Baja-12345", Rol = "Vendedor"
+            Nombre = "Baja", Email = email, Password = ApiFixture.Password, Rol = "Vendedor"
         });
         var creado = (await crear.Content.ReadFromJsonAsync<UsuarioResponseDto>())!;
         await admin.DeleteAsync($"/api/usuario/{creado.Id}");
 
         var r = await _api.Anonimo().PostAsJsonAsync("/api/usuario/login",
-            new LoginDto { Email = email, Password = "Baja-12345" });
+            new LoginDto { Email = email, Password = ApiFixture.Password });
 
         Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode);
     }
@@ -111,6 +112,51 @@ public class SeguridadYOperacionTests
 
         Assert.Equal(10, codigos.Count(c => c == HttpStatusCode.Unauthorized));
         Assert.Equal(2, codigos.Count(c => c == HttpStatusCode.TooManyRequests));
+    }
+
+    [Fact]
+    public async Task El_chat_de_IA_se_limita_por_usuario_no_por_IP()
+    {
+        // Límite bajo para no depender de hacer 20 llamadas. El límite se aplica antes de llegar
+        // a Gemini, así que la clave falsa del entorno de pruebas no importa aquí.
+        using var conLimite = _api.Factory.WithWebHostBuilder(b =>
+        {
+            b.UseSetting("RateLimiting:Enabled", "true");
+            b.UseSetting("RateLimiting:AiChatPermitLimit", "2");
+        });
+
+        // Dos usuarios DISTINTOS de la misma empresa.
+        var admin = await LoginAsync(conLimite, _api.EmpresaA.AdminEmail, ApiFixture.Password);
+        var email = $"vendedor-ia-{Guid.NewGuid():N}@gonzai.local";
+        (await admin.PostAsJsonAsync("/api/usuario", new UsuarioCreateDto
+        {
+            Nombre = "Vendedor IA", Email = email, Password = ApiFixture.Password, Rol = "Vendedor"
+        })).EnsureSuccessStatusCode();
+        var vendedor = await LoginAsync(conLimite, email, ApiFixture.Password);
+
+        var pregunta = new { pregunta = "hola" };
+
+        // El admin agota su cupo de 2; la tercera es 429.
+        await admin.PostAsJsonAsync("/api/ai/chat", pregunta);
+        await admin.PostAsJsonAsync("/api/ai/chat", pregunta);
+        var terceraDelAdmin = await admin.PostAsJsonAsync("/api/ai/chat", pregunta);
+        Assert.Equal(HttpStatusCode.TooManyRequests, terceraDelAdmin.StatusCode);
+
+        // El vendedor es otro usuario: su cupo es independiente. Si el límite fuera por IP (como
+        // ocurría cuando el rate limiter corría antes de autenticar), compartiría partición con el
+        // admin y esta primera llamada ya sería 429.
+        var primeraDelVendedor = await vendedor.PostAsJsonAsync("/api/ai/chat", pregunta);
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, primeraDelVendedor.StatusCode);
+    }
+
+    private static async Task<HttpClient> LoginAsync(WebApplicationFactory<Program> factory, string email, string password)
+    {
+        var client = factory.CreateClient();
+        var resp = await client.PostAsJsonAsync("/api/usuario/login", new LoginDto { Email = email, Password = password });
+        resp.EnsureSuccessStatusCode();
+        var token = (await resp.Content.ReadFromJsonAsync<TokenResponseDto>())!.Token;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 
     private static async Task<decimal> TotalDeudaAsync(HttpClient admin)

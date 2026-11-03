@@ -1,4 +1,5 @@
 using Gonzai_API.Data;
+using Gonzai_API.Extensions;
 using Gonzai_API.DTOs.ChatLog;
 using Gonzai_API.Models;
 using Gonzai_API.Services.Interfaces;
@@ -73,5 +74,15 @@ public class ChatLogService : IChatLogService
         await _context.SaveChangesAsync();
 
         return _mapper.Map<ChatLogResponseDto>(log);
+    }
+
+    public async Task<int> ContarDelDiaAsync()
+    {
+        var hoy = FechaNegocio.Hoy();
+        var (desde, hasta) = FechaNegocio.RangoUtc(hoy, hoy);
+
+        return await _context.ChatLogs
+            .AsNoTracking()
+            .CountAsync(c => c.Fecha >= desde && c.Fecha < hasta);
     }
 }

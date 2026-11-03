@@ -36,4 +36,19 @@ public class NegocioResponseDto
     public string Mensaje { get; set; } = string.Empty;
     public string FormatoPredeterminado { get; set; } = FormatosComprobante.Termico;
     public bool TieneLogo { get; set; }
+
+    /// <summary>
+    /// true si la empresa configuró su propia clave de Gemini. La clave nunca se devuelve:
+    /// solo se informa si está configurada o no.
+    /// </summary>
+    public bool TieneClaveIaPropia { get; set; }
+    public DateTime? ClaveIaFecha { get; set; }
+}
+
+public class NegocioGeminiApiKeyDto
+{
+    [Required(ErrorMessage = "La clave de Gemini es obligatoria.")]
+    [MinLength(10, ErrorMessage = "La clave no parece válida.")]
+    [MaxLength(200, ErrorMessage = "La clave no puede superar 200 caracteres.")]
+    public string ApiKey { get; set; } = string.Empty;
 }

@@ -9,4 +9,7 @@ public interface IChatLogService
     Task<ChatLogResponseDto?> GetByIdAsync(int id);
     Task<IEnumerable<ChatLogResponseDto>> GetRecentByUsuarioIdAsync(int usuarioId, int limit = 10);
     Task<ChatLogResponseDto> CreateAsync(ChatLogCreateDto dto, string respuesta);
+
+    /// <summary>Consultas a la IA hechas hoy por toda la empresa. Sirve para su cupo diario.</summary>
+    Task<int> ContarDelDiaAsync();
 }

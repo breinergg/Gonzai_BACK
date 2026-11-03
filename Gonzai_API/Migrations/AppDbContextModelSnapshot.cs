@@ -17,7 +17,7 @@ namespace Gonzai_API.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.5")
+                .HasAnnotation("ProductVersion", "8.0.33")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -422,6 +422,12 @@ namespace Gonzai_API.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("GeminiApiKeyCifrada")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("GeminiApiKeyFecha")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<byte[]>("Logo")
                         .HasColumnType("bytea");
