@@ -204,6 +204,57 @@ public class MultiEmpresaTests
         Assert.Contains("no está habilitado", await respuesta.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task Configurar_una_clave_de_Gemini_propia_evita_el_cupo_compartido()
+    {
+        // Sin cupo (0) y sin clave propia: el chat se bloquea antes de llamar a Gemini.
+        var empresa = await _api.DarDeAltaAsync("Con IA Propia", "con_ia_propia", "jefe@conia.local", limiteChatsDiarios: 0);
+        var cliente = await _api.ConTokenAsync(empresa.AdminEmail, ApiFixture.Password);
+
+        var antes = await cliente.PostAsJsonAsync("/api/ai/chat", new { pregunta = "¿Cuánto me deben?" });
+        Assert.Equal(HttpStatusCode.TooManyRequests, antes.StatusCode);
+
+        var configurar = await cliente.PutAsJsonAsync("/api/negocio/ia/gemini", new { apiKey = "clave-de-prueba-no-es-real-123" });
+        Assert.Equal(HttpStatusCode.OK, configurar.StatusCode);
+
+        var negocio = await cliente.GetFromJsonAsync<JsonElement>("/api/negocio");
+        Assert.True(negocio.GetProperty("tieneClaveIaPropia").GetBoolean());
+        // La clave nunca se devuelve, ni cifrada ni en claro.
+        Assert.DoesNotContain("clave-de-prueba-no-es-real-123", negocio.ToString());
+
+        // Con clave propia configurada, el cupo compartido (en 0) ya no aplica: el chat llega a
+        // intentar la llamada real a Gemini en vez de quedarse en el bloqueo por cupo. Con una
+        // clave falsa, Gemini la rechaza, pero eso prueba justamente que el cupo no fue lo que paró la petición.
+        var despues = await cliente.PostAsJsonAsync("/api/ai/chat", new { pregunta = "¿Cuánto me deben?" });
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, despues.StatusCode);
+
+        var quitar = await cliente.DeleteAsync("/api/negocio/ia/gemini");
+        Assert.Equal(HttpStatusCode.OK, quitar.StatusCode);
+        var negocioSinClave = await cliente.GetFromJsonAsync<JsonElement>("/api/negocio");
+        Assert.False(negocioSinClave.GetProperty("tieneClaveIaPropia").GetBoolean());
+
+        // Al quitarla, el cupo compartido (todavía en 0) vuelve a aplicar.
+        var tercero = await cliente.PostAsJsonAsync("/api/ai/chat", new { pregunta = "¿Cuánto me deben?" });
+        Assert.Equal(HttpStatusCode.TooManyRequests, tercero.StatusCode);
+    }
+
+    [Fact]
+    public async Task Solo_un_administrador_puede_configurar_la_clave_de_Gemini_de_la_empresa()
+    {
+        var admin = await _api.AdminAsync();
+        var crear = await admin.PostAsJsonAsync("/api/usuario", new UsuarioCreateDto
+        {
+            Nombre = "Vendedor IA", Email = $"vendedor-ia-{Guid.NewGuid():N}@gonzai.local",
+            Password = ApiFixture.Password, Rol = "Vendedor"
+        });
+        var vendedorEmail = (await crear.Content.ReadFromJsonAsync<UsuarioResponseDto>())!.Email;
+        var vendedor = await _api.ConTokenAsync(vendedorEmail, ApiFixture.Password);
+
+        var respuesta = await vendedor.PutAsJsonAsync("/api/negocio/ia/gemini", new { apiKey = "otra-clave-de-prueba-123" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, respuesta.StatusCode);
+    }
+
     private static async Task<decimal> TotalDeudaAsync(Escenario e)
     {
         var json = await e.Admin.GetFromJsonAsync<JsonElement>("/api/cliente/total-deuda");

@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Gonzai_API.Services.Interfaces;
+using Gonzai_API.Services.Tenancy;
 
 namespace Gonzai_API.Services.AI;
 
@@ -19,25 +20,31 @@ public class GeminiService : IAIService
     };
 
     private readonly HttpClient _httpClient;
-    private readonly string _apiKey;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<GeminiService> _logger;
     private readonly IGeminiFunctionDispatcher _dispatcher;
+    private readonly INegocioService _negocio;
 
     public GeminiService(
         HttpClient httpClient,
         IConfiguration configuration,
         ILogger<GeminiService> logger,
-        IGeminiFunctionDispatcher dispatcher)
+        IGeminiFunctionDispatcher dispatcher,
+        INegocioService negocio)
     {
-        _httpClient = httpClient;
-        _logger     = logger;
-        _dispatcher = dispatcher;
-        _apiKey     = configuration["Gemini:ApiKey"]
-            ?? throw new InvalidOperationException("La clave 'Gemini:ApiKey' no está configurada en appsettings.");
+        _httpClient    = httpClient;
+        _configuration = configuration;
+        _logger        = logger;
+        _dispatcher    = dispatcher;
+        _negocio       = negocio;
     }
 
     public async Task<AiResult> GenerarRespuestaAsync(AiChatRequest request)
     {
+        // Se resuelve antes que nada: si ninguna de las dos claves existe, es mejor avisarlo
+        // claro que dejar que el chat "no responda" después de varios reintentos.
+        var apiKey = await ResolverClaveAsync();
+
         var contents      = BuildInitialContents(request);
         var executedCalls = new HashSet<string>(StringComparer.Ordinal);
 
@@ -47,7 +54,7 @@ public class GeminiService : IAIService
 
             try
             {
-                geminiResponse = await CallGeminiWithRetryAsync(contents);
+                geminiResponse = await CallGeminiWithRetryAsync(contents, apiKey);
             }
             catch (HttpRequestException ex) when (ex.Message.Contains("429"))
             {
@@ -155,8 +162,27 @@ public class GeminiService : IAIService
         return new AiResult("No pude completar el procesamiento de tu pregunta. Intenta de nuevo.", true);
     }
 
+    /// <summary>
+    /// La clave propia de la empresa tiene prioridad: su consumo (y su plan gratuito de Google)
+    /// corre por cuenta de esa empresa, no de la plataforma. Si no configuró una, se usa la
+    /// clave compartida de la plataforma —la que paga y limita GonzAI—.
+    /// </summary>
+    private async Task<string> ResolverClaveAsync()
+    {
+        var propia = await _negocio.ObtenerClaveGeminiDescifradaAsync();
+        if (!string.IsNullOrWhiteSpace(propia)) return propia;
+
+        var compartida = _configuration["Gemini:ApiKey"];
+        if (!string.IsNullOrWhiteSpace(compartida)) return compartida;
+
+        throw new InvalidOperationException(
+            "El asistente de IA no está configurado para tu empresa. " +
+            "Un administrador puede activarlo con una clave gratuita de Gemini en Configuración.");
+    }
+
     private async Task<GeminiResponse?> CallGeminiWithRetryAsync(
         List<GeminiContent> contents,
+        string apiKey,
         int maxRetries = 3)
     {
         // Delays para el plan gratuito (15 RPM): ventana de 60s
@@ -174,7 +200,7 @@ public class GeminiService : IAIService
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json")
             };
-            request.Headers.Add("x-goog-api-key", _apiKey);
+            request.Headers.Add("x-goog-api-key", apiKey);
             var httpResp = await _httpClient.SendAsync(request);
 
             if (httpResp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)

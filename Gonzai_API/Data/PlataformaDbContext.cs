@@ -1,4 +1,5 @@
 using Gonzai_API.Models.Plataforma;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gonzai_API.Data;
@@ -7,12 +8,19 @@ namespace Gonzai_API.Data;
 /// Base de catálogo de la plataforma: la lista de empresas y a qué empresa pertenece cada correo.
 /// Es independiente de la base de cada empresa, que sigue teniendo su propio <see cref="AppDbContext"/>.
 /// </summary>
-public class PlataformaDbContext : DbContext
+public class PlataformaDbContext : DbContext, IDataProtectionKeyContext
 {
     public PlataformaDbContext(DbContextOptions<PlataformaDbContext> options) : base(options) { }
 
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<UsuarioDirectorio> UsuariosDirectorio => Set<UsuarioDirectorio>();
+
+    /// <summary>
+    /// Clave con la que se cifran los secretos de cada empresa (como su clave propia de Gemini).
+    /// Vive en el catálogo, no en la base de cada empresa, para que sobreviva a los reinicios del
+    /// contenedor: si se perdiera, los secretos cifrados quedarían ilegibles para siempre.
+    /// </summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -38,6 +38,30 @@ Eso crea su base, aplica las migraciones y le deja su propio administrador. Otra
 
 Suspender una empresa corta el acceso de inmediato, incluso con tokens ya emitidos.
 
+### Clave de Gemini: compartida o propia por empresa
+
+Cada empresa puede traer su propia clave gratuita de Gemini (Google ofrece una por cuenta) en vez
+de usar la clave compartida de la plataforma. Se configura desde la app, en Configuración → Asistente
+de IA, con el usuario Admin de esa empresa, o por API:
+
+```bash
+curl -X PUT https://tu-dominio/api/negocio/ia/gemini \
+  -H "Authorization: Bearer $TOKEN_ADMIN_DE_LA_EMPRESA" \
+  -H "Content-Type: application/json" \
+  -d '{"apiKey":"AIza..."}'
+```
+
+- La clave se guarda **cifrada** (ASP.NET Data Protection) en la base de esa empresa; nunca se
+  devuelve, solo si está configurada (`tieneClaveIaPropia`).
+- Con clave propia, el consumo (y el plan gratuito) corre por cuenta de la empresa, y el
+  `LimiteChatsDiarios` de la plataforma deja de aplicarle.
+- Sin clave propia, se usa `Gemini:ApiKey` (la compartida) y sí aplica el `LimiteChatsDiarios` de esa empresa.
+- Si ninguna de las dos existe, el chat responde con un mensaje claro en vez de fallar: pide que un
+  administrador configure una clave propia.
+- El llavero de cifrado se guarda en el catálogo (tabla `DataProtectionKeys`), no en el disco del
+  contenedor: sobrevive a los reinicios. Si se perdiera, las claves cifradas quedarían ilegibles —
+  haz copia del catálogo junto con el resto de respaldos.
+
 ### Adoptar una base que ya existe
 
 Para la primera empresa, o para restaurar un respaldo, se registra una base existente sin copiar

@@ -25,6 +25,15 @@ public class Negocio
     [MaxLength(20)]
     public string FormatoPredeterminado { get; set; } = FormatosComprobante.Termico;
     public byte[]? Logo { get; set; }
+
+    /// <summary>
+    /// Clave de Gemini propia de esta empresa, cifrada con Data Protection. Si está presente, el
+    /// asistente de IA la usa en vez de la clave compartida de la plataforma: el consumo (y el
+    /// plan gratuito de Google) corre por cuenta de la propia empresa, no de GonzAI.
+    /// </summary>
+    public string? GeminiApiKeyCifrada { get; set; }
+    public DateTime? GeminiApiKeyFecha { get; set; }
+
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
     public DateTime? FechaActualizacion { get; set; }
 }

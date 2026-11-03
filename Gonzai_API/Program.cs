@@ -14,6 +14,7 @@ using Gonzai_API.Services.Tenancy;
 using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -66,6 +67,13 @@ builder.Services.AddSwaggerGen(options =>
 // Catálogo de la plataforma: la lista de empresas y a qué empresa pertenece cada correo.
 builder.Services.AddDbContext<PlataformaDbContext>(options =>
     options.UseNpgsql(TenantStore.CadenaCatalogo(builder.Configuration)));
+
+// Cifra los secretos por empresa (como su clave propia de Gemini). El llavero se guarda en el
+// catálogo (no en memoria ni en disco del contenedor) para que sobreviva a los reinicios:
+// si se perdiera, esos secretos quedarían ilegibles para siempre.
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<PlataformaDbContext>()
+    .SetApplicationName("GonzAI");
 
 builder.Services.AddScoped<TenantContext>();
 builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
@@ -124,7 +132,8 @@ builder.Services.AddScoped<IAIService>(sp =>
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("Gemini"),
         sp.GetRequiredService<IConfiguration>(),
         sp.GetRequiredService<ILogger<GeminiService>>(),
-        sp.GetRequiredService<IGeminiFunctionDispatcher>()
+        sp.GetRequiredService<IGeminiFunctionDispatcher>(),
+        sp.GetRequiredService<INegocioService>()
     ));
 
 // Services

@@ -20,19 +20,22 @@ public class AiController : ControllerBase
     private readonly IPreguntaNoReconocidaService _preguntaNoReconocidaService;
     private readonly ITenantContext _tenant;
     private readonly ITenantStore _empresas;
+    private readonly INegocioService _negocio;
 
     public AiController(
         IAIService aiService,
         IChatLogService chatLogService,
         IPreguntaNoReconocidaService preguntaNoReconocidaService,
         ITenantContext tenant,
-        ITenantStore empresas)
+        ITenantStore empresas,
+        INegocioService negocio)
     {
         _aiService = aiService;
         _chatLogService = chatLogService;
         _preguntaNoReconocidaService = preguntaNoReconocidaService;
         _tenant = tenant;
         _empresas = empresas;
+        _negocio = negocio;
     }
 
     // POST: api/ai/chat
@@ -40,19 +43,25 @@ public class AiController : ControllerBase
     [EnableRateLimiting("ai-chat")]
     public async Task<ActionResult<ChatResponseDto>> Chat([FromBody] ChatRequestDto dto)
     {
-        // Cada consulta a la IA se cobra a la cuenta de Gemini de la plataforma, así que
-        // cada empresa tiene su cupo diario.
-        var empresa = await _empresas.PorIdAsync(_tenant.EmpresaIdRequerido);
-
-        if (empresa is not null && await _chatLogService.ContarDelDiaAsync() >= empresa.LimiteChatsDiarios)
+        // El cupo diario solo protege la cuenta de Gemini DE LA PLATAFORMA. Si la empresa configuró
+        // su propia clave (gratuita) en Configuración, el consumo corre por su cuenta y no cuenta
+        // para ningún cupo compartido.
+        if (!await _negocio.TieneClaveGeminiPropiaAsync())
         {
-            return StatusCode(StatusCodes.Status429TooManyRequests, new
+            var empresa = await _empresas.PorIdAsync(_tenant.EmpresaIdRequerido);
+
+            if (empresa is not null && await _chatLogService.ContarDelDiaAsync() >= empresa.LimiteChatsDiarios)
             {
-                message = empresa.LimiteChatsDiarios == 0
-                    ? "El asistente de IA no está habilitado para tu empresa."
-                    : $"Tu empresa alcanzó el límite de {empresa.LimiteChatsDiarios} consultas a la IA por día. " +
-                      "Vuelve a intentarlo mañana."
-            });
+                return StatusCode(StatusCodes.Status429TooManyRequests, new
+                {
+                    message = empresa.LimiteChatsDiarios == 0
+                        ? "El asistente de IA no está habilitado para tu empresa. Un administrador puede " +
+                          "activarlo gratis con su propia clave de Gemini en Configuración."
+                        : $"Tu empresa alcanzó el límite de {empresa.LimiteChatsDiarios} consultas a la IA por día. " +
+                          "Vuelve a intentarlo mañana, o pide a un administrador que active una clave propia de " +
+                          "Gemini (gratuita) en Configuración para no depender de este límite."
+                });
+            }
         }
 
         var usuarioId = User.GetUsuarioId();
