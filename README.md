@@ -115,13 +115,17 @@ cp .env.example .env      # completa los valores (JWT_KEY, contraseñas, dominio
 docker compose up -d --build
 ```
 
-Levanta PostgreSQL, la API y nginx con el frontend (la carpeta del frontend debe estar en
+Levanta PostgreSQL, la API, nginx con el frontend, y **Caddy** (HTTPS automático con Let's
+Encrypt: solo con que `PUBLIC_HOST` sea un dominio real que ya apunte a este servidor, el
+certificado se obtiene y renueva solo — la carpeta del frontend debe estar en
 `../../frontend/Gonzai_FRONT-v2`). Al arrancar, la API migra el catálogo, crea la primera empresa
 con `ADMIN_EMAIL` / `ADMIN_PASSWORD` si el catálogo está vacío, y pone al día las migraciones de
 todas las empresas. Después de entrar, cambia la contraseña y vacía `ADMIN_PASSWORD` del `.env`.
 
-- Solo el servicio `web` publica puerto (`WEB_PORT`). La base y la API quedan en la red interna.
-- Pon un terminador TLS delante (Caddy, Cloudflare, balanceador del hosting).
+**Guía completa paso a paso para desplegar gratis en una VM de Oracle Cloud Always Free:
+[`deploy/DESPLIEGUE.md`](deploy/DESPLIEGUE.md).**
+
+- Solo `caddy` publica puertos (80 y 443). La base, la API y nginx quedan en la red interna.
 - `GET /health` (interno) comprueba que la API y PostgreSQL responden.
 - Variables de entorno relevantes: `Jwt__Key`, `ConnectionStrings__DefaultConnection`, `Gemini__ApiKey`,
   `Cors__Origins__0`, `Comprobantes__BaseUrl`, `ForwardedHeaders__Enabled`, `HttpsRedirection__Enabled`,

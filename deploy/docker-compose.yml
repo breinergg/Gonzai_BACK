@@ -1,4 +1,5 @@
-# Despliegue completo de GonzAI: PostgreSQL + API (.NET 8) + Web (Angular servido por nginx).
+# Despliegue completo de GonzAI: PostgreSQL + API (.NET 8) + Web (Angular servido por nginx) + Caddy
+# (HTTPS automático con Let's Encrypt, usando el dominio de PUBLIC_HOST).
 #
 # Cada empresa cliente tiene SU PROPIA base de datos. La base "gonzai_catalogo" solo guarda
 # la lista de empresas y a qué empresa pertenece cada correo; los clientes, ventas e inventario
@@ -8,8 +9,9 @@
 #   docker compose up -d --build
 #
 # Asume la estructura de carpetas:  gonzai/backend/Gonzai_BACK (este repo)  y  gonzai/frontend/Gonzai_FRONT-v2.
-# El servicio "web" escucha en HTTP (puerto WEB_PORT). Pon delante un terminador TLS
-# (Caddy, Cloudflare, balanceador del hosting...) y deja HTTPS solo hacia afuera.
+# Caddy es el único servicio que publica puertos al host (80 y 443): obtiene el certificado TLS
+# solo con que PUBLIC_HOST sea un dominio real que ya apunte a este servidor. Con un dominio
+# inventado, una IP o "localhost" en PUBLIC_HOST, Caddy no intenta Let's Encrypt y sirve en HTTP.
 name: gonzai
 
 services:
@@ -77,8 +79,27 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    # Sin "ports": no se expone directo al host, solo a la red interna de compose.
+    # Caddy es el único borde público (ver más abajo).
+
+  caddy:
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      # Caddy sustituye {$PUBLIC_HOST} en el Caddyfile por este valor.
+      PUBLIC_HOST: ${PUBLIC_HOST:?Define PUBLIC_HOST en .env (ej. gonzai.midominio.com)}
     ports:
-      - "${WEB_PORT:-80}:80"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
 
 volumes:
   gonzai-pgdata:
+  caddy-data:
+  caddy-config:
