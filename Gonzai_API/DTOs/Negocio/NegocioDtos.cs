@@ -43,6 +43,14 @@ public class NegocioResponseDto
     /// </summary>
     public bool TieneClaveIaPropia { get; set; }
     public DateTime? ClaveIaFecha { get; set; }
+
+    /// <summary>
+    /// true si la empresa configuró su propio correo para enviar comprobantes. La contraseña
+    /// nunca se devuelve; el usuario sí, para que sepas cuál está activo.
+    /// </summary>
+    public bool TieneSmtpPropio { get; set; }
+    public string? SmtpUsuario { get; set; }
+    public DateTime? SmtpFecha { get; set; }
 }
 
 public class NegocioGeminiApiKeyDto
@@ -51,4 +59,28 @@ public class NegocioGeminiApiKeyDto
     [MinLength(10, ErrorMessage = "La clave no parece válida.")]
     [MaxLength(200, ErrorMessage = "La clave no puede superar 200 caracteres.")]
     public string ApiKey { get; set; } = string.Empty;
+}
+
+public class NegocioSmtpDto
+{
+    [Required(ErrorMessage = "El correo es obligatorio.")]
+    [EmailAddress(ErrorMessage = "El correo no es válido.")]
+    [MaxLength(100, ErrorMessage = "El correo no puede superar 100 caracteres.")]
+    public string Usuario { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La contraseña de aplicación es obligatoria.")]
+    [MinLength(8, ErrorMessage = "La contraseña no parece válida.")]
+    [MaxLength(200, ErrorMessage = "La contraseña no puede superar 200 caracteres.")]
+    public string Password { get; set; } = string.Empty;
+
+    /// <summary>Vacío = Gmail (smtp.gmail.com). Solo hace falta para otro proveedor de correo.</summary>
+    [MaxLength(100, ErrorMessage = "El servidor no puede superar 100 caracteres.")]
+    public string? Host { get; set; }
+
+    [Range(1, 65535, ErrorMessage = "El puerto no es válido.")]
+    public int? Puerto { get; set; }
+
+    /// <summary>starttls (por defecto), ssl o none.</summary>
+    [MaxLength(20)]
+    public string? Seguridad { get; set; }
 }

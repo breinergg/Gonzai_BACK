@@ -442,6 +442,27 @@ namespace Gonzai_API.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<DateTime?>("SmtpFecha")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SmtpHost")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SmtpPasswordCifrada")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SmtpPuerto")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SmtpSeguridad")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("SmtpUsuario")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("Telefono")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");

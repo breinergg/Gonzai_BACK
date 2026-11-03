@@ -255,6 +255,80 @@ public class MultiEmpresaTests
         Assert.Equal(HttpStatusCode.Forbidden, respuesta.StatusCode);
     }
 
+    [Fact]
+    public async Task Configurar_correo_propio_se_guarda_cifrado_con_Gmail_como_proveedor_por_defecto()
+    {
+        var admin = await _api.AdminAsync();
+
+        var configurar = await admin.PutAsJsonAsync("/api/negocio/smtp", new
+        {
+            usuario = "tienda@gmail.com", password = "clave-de-aplicacion-falsa-1234"
+        });
+        Assert.Equal(HttpStatusCode.OK, configurar.StatusCode);
+
+        var negocio = await admin.GetFromJsonAsync<JsonElement>("/api/negocio");
+        Assert.True(negocio.GetProperty("tieneSmtpPropio").GetBoolean());
+        Assert.Equal("tienda@gmail.com", negocio.GetProperty("smtpUsuario").GetString());
+        // La contraseña nunca se devuelve por la API, ni cifrada ni en claro.
+        Assert.DoesNotContain("clave-de-aplicacion-falsa-1234", negocio.ToString());
+
+        // Verificación directa en la base: sin Host explícito, debe asumir Gmail; la contraseña
+        // debe quedar cifrada (el texto guardado no puede ser igual al que se mandó).
+        await using var conexion = new Npgsql.NpgsqlConnection(_api.CadenaDeEmpresa("empresa_a"));
+        await conexion.OpenAsync();
+        await using var comando = new Npgsql.NpgsqlCommand(
+            "SELECT \"SmtpHost\", \"SmtpPuerto\", \"SmtpSeguridad\", \"SmtpPasswordCifrada\" FROM \"Negocio\"", conexion);
+        await using var lector = await comando.ExecuteReaderAsync();
+        Assert.True(await lector.ReadAsync());
+        Assert.Equal("smtp.gmail.com", lector.GetString(0));
+        Assert.Equal(587, lector.GetInt32(1));
+        Assert.Equal("starttls", lector.GetString(2));
+        Assert.NotEqual("clave-de-aplicacion-falsa-1234", lector.GetString(3));
+    }
+
+    [Fact]
+    public async Task Quitar_el_correo_propio_vuelve_a_usar_el_compartido()
+    {
+        var admin = await _api.AdminAsync();
+        await admin.PutAsJsonAsync("/api/negocio/smtp", new { usuario = "tienda@gmail.com", password = "clave-de-prueba-123456" });
+
+        var quitar = await admin.DeleteAsync("/api/negocio/smtp");
+        Assert.Equal(HttpStatusCode.OK, quitar.StatusCode);
+
+        var negocio = await admin.GetFromJsonAsync<JsonElement>("/api/negocio");
+        Assert.False(negocio.GetProperty("tieneSmtpPropio").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, negocio.GetProperty("smtpUsuario").ValueKind);
+    }
+
+    [Fact]
+    public async Task Solo_un_administrador_puede_configurar_el_correo_de_la_empresa()
+    {
+        var admin = await _api.AdminAsync();
+        var crear = await admin.PostAsJsonAsync("/api/usuario", new UsuarioCreateDto
+        {
+            Nombre = "Vendedor Correo", Email = $"vendedor-correo-{Guid.NewGuid():N}@gonzai.local",
+            Password = ApiFixture.Password, Rol = "Vendedor"
+        });
+        var vendedorEmail = (await crear.Content.ReadFromJsonAsync<UsuarioResponseDto>())!.Email;
+        var vendedor = await _api.ConTokenAsync(vendedorEmail, ApiFixture.Password);
+
+        var respuesta = await vendedor.PutAsJsonAsync("/api/negocio/smtp", new { usuario = "x@gmail.com", password = "otra-clave-123456" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, respuesta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Probar_el_correo_sin_haberlo_configurado_da_un_mensaje_claro()
+    {
+        var empresa = await _api.DarDeAltaAsync("Sin Correo", "sin_correo", "jefe@sincorreo.local");
+        var cliente = await _api.ConTokenAsync(empresa.AdminEmail, ApiFixture.Password);
+
+        var respuesta = await cliente.PostAsync("/api/negocio/smtp/probar", null);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, respuesta.StatusCode);
+        Assert.Contains("Guarda primero", await respuesta.Content.ReadAsStringAsync());
+    }
+
     private static async Task<decimal> TotalDeudaAsync(Escenario e)
     {
         var json = await e.Admin.GetFromJsonAsync<JsonElement>("/api/cliente/total-deuda");

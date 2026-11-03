@@ -62,6 +62,28 @@ curl -X PUT https://tu-dominio/api/negocio/ia/gemini \
   contenedor: sobrevive a los reinicios. Si se perdiera, las claves cifradas quedarían ilegibles —
   haz copia del catálogo junto con el resto de respaldos.
 
+### Correo de comprobantes: compartido o propio por empresa
+
+Igual que con Gemini: cada empresa puede traer su propio correo (Gmail u otro proveedor) para
+enviar comprobantes, desde Configuración → Correo de comprobantes, con instrucciones para generar
+una contraseña de aplicación de Gmail. Por API:
+
+```bash
+curl -X PUT https://tu-dominio/api/negocio/smtp \
+  -H "Authorization: Bearer $TOKEN_ADMIN_DE_LA_EMPRESA" \
+  -H "Content-Type: application/json" \
+  -d '{"usuario":"ventas@tutienda.com","password":"xxxx xxxx xxxx xxxx"}'
+```
+
+- Sin `host`/`puerto`/`seguridad`, se asume Gmail (`smtp.gmail.com:587`, STARTTLS). Para otro
+  proveedor, se envían esos tres campos.
+- La contraseña se guarda **cifrada**, con el mismo mecanismo que la clave de Gemini pero con un
+  propósito de cifrado distinto (`GonzAI.Negocio.SmtpPassword`), así que rotar uno no afecta al otro.
+- `POST /api/negocio/smtp/probar` manda un correo corto a la propia cuenta configurada, para
+  confirmar que funciona antes de confiar en ella con un cliente real.
+- Sin correo propio, se usan las `Smtp:*` compartidas de la plataforma (igual que antes).
+- Si ninguna de las dos existe, el envío falla con un mensaje claro en vez de un error críptico.
+
 ### Adoptar una base que ya existe
 
 Para la primera empresa, o para restaurar un respaldo, se registra una base existente sin copiar

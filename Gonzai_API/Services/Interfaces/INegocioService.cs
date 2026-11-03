@@ -24,4 +24,19 @@ public interface INegocioService
     /// descifrar (por ejemplo, tras rotar la clave de cifrado de la plataforma).
     /// </summary>
     Task<string?> ObtenerClaveGeminiDescifradaAsync();
+
+    /// <summary>Cifra y guarda el correo propio de la empresa para enviar comprobantes.</summary>
+    Task<NegocioResponseDto> ConfigurarSmtpAsync(NegocioSmtpDto dto);
+
+    /// <summary>Vuelve a usar el correo compartido de la plataforma.</summary>
+    Task<NegocioResponseDto> QuitarSmtpAsync();
+
+    /// <summary>
+    /// Configuración SMTP propia ya descifrada, o null si la empresa no configuró una (o no se
+    /// pudo descifrar). La usa <see cref="Email.SmtpEmailSender"/> antes de caer a la compartida.
+    /// </summary>
+    Task<SmtpConfigPropia?> ObtenerSmtpPropioAsync();
 }
+
+/// <summary>Configuración SMTP de una empresa, ya descifrada. Solo para uso interno del envío de correo.</summary>
+public record SmtpConfigPropia(string Host, int Puerto, string Seguridad, string Usuario, string Password);

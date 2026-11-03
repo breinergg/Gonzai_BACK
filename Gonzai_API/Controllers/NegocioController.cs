@@ -1,4 +1,5 @@
 using Gonzai_API.DTOs.Negocio;
+using Gonzai_API.Services.Email;
 using Gonzai_API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,10 +12,12 @@ namespace Gonzai_API.Controllers;
 public class NegocioController : ControllerBase
 {
     private readonly INegocioService _service;
+    private readonly IEmailSender _email;
 
-    public NegocioController(INegocioService service)
+    public NegocioController(INegocioService service, IEmailSender email)
     {
         _service = service;
+        _email   = email;
     }
 
     [HttpGet]
@@ -83,4 +86,44 @@ public class NegocioController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<NegocioResponseDto>> QuitarClaveGemini() =>
         Ok(await _service.QuitarClaveGeminiAsync());
+
+    /// <summary>
+    /// Configura el correo propio de la empresa para enviar comprobantes. A partir de aquí, los
+    /// envíos cuentan para su propio límite diario, no el de la plataforma.
+    /// </summary>
+    [HttpPut("smtp")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<NegocioResponseDto>> ConfigurarSmtp([FromBody] NegocioSmtpDto dto) =>
+        Ok(await _service.ConfigurarSmtpAsync(dto));
+
+    /// <summary>Quita el correo propio: los comprobantes vuelven a enviarse con el correo compartido.</summary>
+    [HttpDelete("smtp")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<NegocioResponseDto>> QuitarSmtp() =>
+        Ok(await _service.QuitarSmtpAsync());
+
+    /// <summary>Manda un correo corto a la propia empresa, para confirmar que la configuración funciona.</summary>
+    [HttpPost("smtp/probar")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> ProbarSmtp()
+    {
+        var negocio = await _service.GetAsync();
+
+        if (!negocio.TieneSmtpPropio || string.IsNullOrWhiteSpace(negocio.SmtpUsuario))
+            return UnprocessableEntity(new { message = "Guarda primero tu correo antes de probarlo." });
+
+        try
+        {
+            await _email.EnviarPruebaAsync(negocio.SmtpUsuario, negocio.NombreComercial);
+            return Ok(new { message = $"Correo de prueba enviado a {negocio.SmtpUsuario}. Revisa tu bandeja." });
+        }
+        catch (Exception ex)
+        {
+            return UnprocessableEntity(new
+            {
+                message = "No se pudo enviar. Revisa el correo y la contraseña de aplicación.",
+                detalle = ex.Message
+            });
+        }
+    }
 }

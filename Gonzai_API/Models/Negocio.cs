@@ -16,7 +16,7 @@ public class Negocio
     public string? Telefono { get; set; }
     [MaxLength(80)]
     public string? Ciudad { get; set; }
-    /// <summary>A este correo llegan las respuestas del cliente. El envío sale del correo de la plataforma.</summary>
+    /// <summary>A este correo llegan las respuestas del cliente.</summary>
     [MaxLength(100)]
     public string? CorreoRespuesta { get; set; }
     [MaxLength(200)]
@@ -33,6 +33,22 @@ public class Negocio
     /// </summary>
     public string? GeminiApiKeyCifrada { get; set; }
     public DateTime? GeminiApiKeyFecha { get; set; }
+
+    /// <summary>
+    /// Correo propio de la empresa para enviar comprobantes (cifrado con Data Protection). Si
+    /// está presente, se usa en vez de la cuenta compartida de la plataforma: los envíos salen
+    /// a nombre de este correo y cuentan para su propio límite diario, no el de GonzAI.
+    /// </summary>
+    [MaxLength(100)]
+    public string? SmtpHost { get; set; }
+    public int? SmtpPuerto { get; set; }
+    /// <summary>starttls, ssl o none.</summary>
+    [MaxLength(20)]
+    public string? SmtpSeguridad { get; set; }
+    [MaxLength(100)]
+    public string? SmtpUsuario { get; set; }
+    public string? SmtpPasswordCifrada { get; set; }
+    public DateTime? SmtpFecha { get; set; }
 
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
     public DateTime? FechaActualizacion { get; set; }
