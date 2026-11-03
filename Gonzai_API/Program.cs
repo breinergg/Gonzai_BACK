@@ -13,6 +13,7 @@ using Gonzai_API.Services.Interfaces;
 using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -21,6 +22,13 @@ using Microsoft.OpenApi.Models;
 QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// La clave JWT es obligatoria y debe ser larga: con una débil se podrían falsificar tokens de Admin.
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
+    throw new InvalidOperationException(
+        "Jwt:Key no está configurada o es demasiado corta (mínimo 32 caracteres). " +
+        "Defínela con user-secrets (desarrollo) o la variable de entorno Jwt__Key (producción).");
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -54,8 +62,25 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddSingleton<DashboardCacheInterceptor>();
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .AddInterceptors(sp.GetRequiredService<DashboardCacheInterceptor>()));
+
+builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("postgres");
+
+// Detrás de un proxy inverso (nginx, balanceador) la IP y el esquema reales llegan en X-Forwarded-*.
+// Actívalo solo si la API NO es accesible directamente desde internet; si no, X-Forwarded-For se podría falsificar.
+if (builder.Configuration.GetValue("ForwardedHeaders:Enabled", false))
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.ForwardLimit = 1;
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+}
 
 // Mapster
 var mapsterConfig = TypeAdapterConfig.GlobalSettings;
@@ -195,7 +220,12 @@ builder.Services.AddCors(options => {
 
 var app = builder.Build();
 
+await DbInitializer.InicializarAsync(app.Services);
+
 // Configure the HTTP request pipeline.
+if (app.Configuration.GetValue("ForwardedHeaders:Enabled", false))
+    app.UseForwardedHeaders();
+
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -204,7 +234,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// En producción el TLS suele terminar en el proxy: ahí se pone HttpsRedirection:Enabled=false.
+if (app.Configuration.GetValue("HttpsRedirection:Enabled", true))
+    app.UseHttpsRedirection();
+
+if (!app.Environment.IsDevelopment())
+    app.UseHsts();
 
 app.UseCors("FrontendPolicy");
 
@@ -214,5 +249,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health").DisableRateLimiting().AllowAnonymous();
 
-app.Run();
+await app.RunAsync();
+
+public partial class Program { }

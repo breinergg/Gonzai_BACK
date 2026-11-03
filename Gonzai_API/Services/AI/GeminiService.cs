@@ -165,13 +165,17 @@ public class GeminiService : IAIService
         // intento 3 → falla → aborta
         var retryDelays = new[] { TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(40) };
 
-        var url  = $"{ApiBaseUrl}?key={_apiKey}";
         var body = JsonSerializer.Serialize(BuildRequest(contents), JsonOptions);
 
         for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
-            var httpContent = new StringContent(body, Encoding.UTF8, "application/json");
-            var httpResp    = await _httpClient.PostAsync(url, httpContent);
+            // La clave va en el header (no en la URL) para que no aparezca en logs ni en trazas.
+            using var request = new HttpRequestMessage(HttpMethod.Post, ApiBaseUrl)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            };
+            request.Headers.Add("x-goog-api-key", _apiKey);
+            var httpResp = await _httpClient.SendAsync(request);
 
             if (httpResp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
