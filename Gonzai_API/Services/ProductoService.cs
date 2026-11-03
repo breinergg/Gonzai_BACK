@@ -4,6 +4,7 @@ using Gonzai_API.Models;
 using Gonzai_API.Services.Interfaces;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Gonzai_API.Services;
 
@@ -12,12 +13,14 @@ public class ProductoService : IProductoService
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
     private readonly IInventarioService _inventario;
+    private readonly IMemoryCache _cache;
 
-    public ProductoService(AppDbContext context, IMapper mapper, IInventarioService inventario)
+    public ProductoService(AppDbContext context, IMapper mapper, IInventarioService inventario, IMemoryCache cache)
     {
         _context    = context;
         _mapper     = mapper;
         _inventario = inventario;
+        _cache      = cache;
     }
 
     public async Task<IEnumerable<ProductoResponseDto>> GetAllAsync()
@@ -109,9 +112,13 @@ public class ProductoService : IProductoService
 
     public async Task<int> GetProductosActivosCountAsync()
     {
-        return await _context.Productos
-            .AsNoTracking()
-            .CountAsync(p => p.Activo);
+        return await _cache.GetOrCreateAsync("dashboard:productos-activos", async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
+            return await _context.Productos
+                .AsNoTracking()
+                .CountAsync(p => p.Activo);
+        });
     }
 
     public async Task<IEnumerable<ProductoResponseDto>> SearchAsync(string? nombre, bool soloActivos = true, int limit = 20)

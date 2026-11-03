@@ -3,6 +3,7 @@ using Gonzai_API.DTOs.Usuario;
 using Gonzai_API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Gonzai_API.Controllers;
 
@@ -21,6 +22,7 @@ public class UsuarioController : ControllerBase
     // POST: api/usuario/login
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("login")]
     public async Task<ActionResult<TokenResponseDto>> Login([FromBody] LoginDto dto)
     {
         var token = await _service.LoginAsync(dto);
@@ -58,15 +60,8 @@ public class UsuarioController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<UsuarioResponseDto>> Create([FromBody] UsuarioCreateDto dto)
     {
-        try
-        {
-            var usuario = await _service.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = usuario.Id }, usuario);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
+        var usuario = await _service.CreateAsync(dto);
+        return CreatedAtAction(nameof(GetById), new { id = usuario.Id }, usuario);
     }
 
     // PUT: api/usuario/5
@@ -74,19 +69,12 @@ public class UsuarioController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<UsuarioResponseDto>> Update(int id, [FromBody] UsuarioUpdateDto dto)
     {
-        try
-        {
-            var usuario = await _service.UpdateAsync(id, dto);
+        var usuario = await _service.UpdateAsync(id, dto);
 
-            if (usuario is null)
-                return NotFound(new { message = $"Usuario con Id {id} no encontrado." });
+        if (usuario is null)
+            return NotFound(new { message = $"Usuario con Id {id} no encontrado." });
 
-            return Ok(usuario);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
+        return Ok(usuario);
     }
 
     // PATCH: api/usuario/5/cambiar-password
@@ -99,17 +87,10 @@ public class UsuarioController : ControllerBase
         if (!isAdmin && userIdClaim != id.ToString())
             return Forbid();
 
-        try
-        {
-            var resultado = await _service.CambiarPasswordAsync(id, dto);
-            if (!resultado)
-                return NotFound(new { message = $"Usuario con Id {id} no encontrado." });
-            return NoContent();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
+        var resultado = await _service.CambiarPasswordAsync(id, dto);
+        if (!resultado)
+            return NotFound(new { message = $"Usuario con Id {id} no encontrado." });
+        return NoContent();
     }
 
     // DELETE: api/usuario/5

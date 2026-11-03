@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restaurar
+        run: dotnet restore Gonzai_BACK.sln
+
+      - name: Compilar
+        run: dotnet build Gonzai_BACK.sln --no-restore -c Release
+
+      # Las pruebas levantan PostgreSQL con Testcontainers (Docker ya viene en ubuntu-latest).
+      - name: Pruebas de integración
+        run: dotnet test Gonzai_API.Tests --no-build -c Release --logger "trx;LogFileName=resultados.trx"
+
+      - name: Paquetes con vulnerabilidades
+        run: |
+          dotnet list Gonzai_API/Gonzai_API.csproj package --vulnerable --include-transitive 2>&1 | tee vulnerables.txt
+          if grep -q "tiene los paquetes vulnerables siguientes\|has the following vulnerable packages" vulnerables.txt; then
+            echo "::error::Hay paquetes NuGet con vulnerabilidades conocidas"; exit 1
+          fi
+
+      - name: Subir resultados de pruebas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-pruebas
+          path: "**/TestResults/*.trx"
+
+  imagen-docker:
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construir imagen de la API
+        run: docker build -t gonzai-api:ci .

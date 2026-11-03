@@ -1,10 +1,12 @@
 using Gonzai_API.Data;
+using Gonzai_API.DTOs.Comun;
 using Gonzai_API.DTOs.VentaCliente;
 using Gonzai_API.Extensions;
 using Gonzai_API.Models;
 using Gonzai_API.Services.Interfaces;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Gonzai_API.Services;
 
@@ -13,18 +15,21 @@ public class VentaClienteService : IVentaClienteService
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
     private readonly IInventarioService _inventario;
+    private readonly IMemoryCache _cache;
 
-    public VentaClienteService(AppDbContext context, IMapper mapper, IInventarioService inventario)
+    public VentaClienteService(AppDbContext context, IMapper mapper, IInventarioService inventario, IMemoryCache cache)
     {
         _context    = context;
         _mapper     = mapper;
         _inventario = inventario;
+        _cache      = cache;
     }
 
-    public async Task<IEnumerable<VentaClienteResponseDto>> GetAllAsync(
-        int? clienteId = null, DateOnly? desde = null, DateOnly? hasta = null, bool soloPendientes = false, int? limit = null)
+    public async Task<PagedResultDto<VentaClienteResponseDto>> GetAllAsync(
+        int? clienteId = null, DateOnly? desde = null, DateOnly? hasta = null,
+        bool soloPendientes = false, int page = 1, int pageSize = 50)
     {
-        var query = QueryConDetalle();
+        var query = QueryLigera();
 
         if (clienteId.HasValue)
             query = query.Where(v => v.ClienteId == clienteId.Value);
@@ -38,14 +43,21 @@ public class VentaClienteService : IVentaClienteService
         if (soloPendientes)
             query = query.Where(v => v.Estado == EstadosDocumento.Activa && v.SaldoPendiente > 0);
 
-        query = query.OrderByDescending(v => v.Fecha).ThenByDescending(v => v.Id);
+        var total = await query.CountAsync();
 
-        if (limit.HasValue)
-            query = query.Take(limit.Value);
+        var ventas = await query
+            .OrderByDescending(v => v.Fecha).ThenByDescending(v => v.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
 
-        var ventas = await query.ToListAsync();
-
-        return _mapper.Map<IEnumerable<VentaClienteResponseDto>>(ventas);
+        return new PagedResultDto<VentaClienteResponseDto>
+        {
+            Items    = _mapper.Map<IEnumerable<VentaClienteResponseDto>>(ventas),
+            Total    = total,
+            Page     = page,
+            PageSize = pageSize
+        };
     }
 
     public async Task<VentaClienteResponseDto?> GetByIdAsync(int id)
@@ -204,28 +216,33 @@ public class VentaClienteService : IVentaClienteService
 
     public async Task<VentaMensualResumenDto> GetResumenMensualAsync()
     {
-        var hoy               = FechaNegocio.Hoy();
-        var inicioMesActual   = new DateOnly(hoy.Year, hoy.Month, 1);
-        var inicioMesAnterior = inicioMesActual.AddMonths(-1);
-
-        var totalActual   = await TotalVendidoAsync(inicioMesActual, hoy);
-        var totalAnterior = await TotalVendidoAsync(inicioMesAnterior, inicioMesActual.AddDays(-1));
-
-        decimal porcentajeCambio = 0m;
-        if (totalAnterior != 0)
-            porcentajeCambio = Math.Round(((totalActual - totalAnterior) / totalAnterior) * 100, 2);
-
-        var cultura = new System.Globalization.CultureInfo("es-ES");
-
-        return new VentaMensualResumenDto
+        return (await _cache.GetOrCreateAsync("dashboard:resumen-mensual", async entry =>
         {
-            Mes              = hoy.ToString("MMM yyyy", cultura),
-            MesAnterior      = inicioMesAnterior.ToString("MMM yyyy", cultura),
-            TotalMesActual   = totalActual,
-            TotalMesAnterior = totalAnterior,
-            PorcentajeCambio = Math.Abs(porcentajeCambio),
-            EsAumento        = porcentajeCambio >= 0
-        };
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
+
+            var hoy               = FechaNegocio.Hoy();
+            var inicioMesActual   = new DateOnly(hoy.Year, hoy.Month, 1);
+            var inicioMesAnterior = inicioMesActual.AddMonths(-1);
+
+            var totalActual   = await TotalVendidoAsync(inicioMesActual, hoy);
+            var totalAnterior = await TotalVendidoAsync(inicioMesAnterior, inicioMesActual.AddDays(-1));
+
+            decimal porcentajeCambio = 0m;
+            if (totalAnterior != 0)
+                porcentajeCambio = Math.Round(((totalActual - totalAnterior) / totalAnterior) * 100, 2);
+
+            var cultura = new System.Globalization.CultureInfo("es-ES");
+
+            return new VentaMensualResumenDto
+            {
+                Mes              = hoy.ToString("MMM yyyy", cultura),
+                MesAnterior      = inicioMesAnterior.ToString("MMM yyyy", cultura),
+                TotalMesActual   = totalActual,
+                TotalMesAnterior = totalAnterior,
+                PorcentajeCambio = Math.Abs(porcentajeCambio),
+                EsAumento        = porcentajeCambio >= 0
+            };
+        }))!;
     }
 
     private async Task<decimal> TotalVendidoAsync(DateOnly desde, DateOnly hasta)
@@ -237,6 +254,15 @@ public class VentaClienteService : IVentaClienteService
             .Where(v => v.Estado == EstadosDocumento.Activa && v.Fecha >= desdeUtc && v.Fecha < hastaUtc)
             .SumAsync(v => (decimal?)v.Total) ?? 0m;
     }
+
+    private IQueryable<VentaCliente> QueryLigera() =>
+        _context.VentasCliente
+            .AsNoTracking()
+            .Include(v => v.Cliente)
+            .Include(v => v.Usuario)
+            .Include(v => v.Detalles).ThenInclude(d => d.ProductoVariante).ThenInclude(pv => pv.Producto)
+            .Include(v => v.Pagos)
+            .AsSplitQuery();
 
     private IQueryable<VentaCliente> QueryConDetalle() =>
         _context.VentasCliente

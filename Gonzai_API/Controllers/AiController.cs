@@ -5,6 +5,7 @@ using Gonzai_API.Extensions;
 using Gonzai_API.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Gonzai_API.Controllers;
 
@@ -29,6 +30,7 @@ public class AiController : ControllerBase
 
     // POST: api/ai/chat
     [HttpPost("chat")]
+    [EnableRateLimiting("ai-chat")]
     public async Task<ActionResult<ChatResponseDto>> Chat([FromBody] ChatRequestDto dto)
     {
         var usuarioId = User.GetUsuarioId();

@@ -42,7 +42,8 @@ public sealed class ConsultarVentasHandler : GeminiFunctionHandlerBase
         if (desde is null && clienteId is null && !soloPendientes)
             return Success(await _ventaService.GetResumenMensualAsync());
 
-        var ventas = (await _ventaService.GetAllAsync(clienteId, desde, hasta, soloPendientes)).ToList();
+        var result = await _ventaService.GetAllAsync(clienteId, desde, hasta, soloPendientes, pageSize: 200);
+        var ventas = result.Items.ToList();
         var activas = ventas.Where(v => v.Estado == EstadosDocumento.Activa).ToList();
 
         return Success(new
