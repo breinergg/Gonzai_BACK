@@ -9,11 +9,12 @@ namespace Gonzai_API.Services.AI;
 public class GeminiService : IAIService
 {
     private const string NoReconocidaToken = "[NO_RECONOCIDA]";
-    // Flash-Lite tiene bastante más cupo gratis por minuto que Flash (y el mismo techo de tokens),
-    // y sigue soportando function calling, que es de lo que depende todo este asistente.
-    // gemini-2.5-flash-lite ya no admite cuentas nuevas; Google recomienda 3.5-flash-lite en su lugar
-    // (verificado: responde 200 y sigue generando function calls correctamente).
-    private const string ApiBaseUrl        = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent";
+    // Se probó gemini-3.5-flash-lite por su mayor cupo gratis (gemini-2.5-flash-lite ya no admite
+    // cuentas nuevas), pero es un modelo "thinking": con la misma pregunta tardaba 15-30s en vez de
+    // 1-2s, sin que ningún thinkingConfig (budget bajo, nivel "low") lo arreglara. Para un chat en
+    // vivo esa demora no es aceptable, así que se queda gemini-2.5-flash. El cupo diario compartido
+    // se resuelve mejor dejando que cada empresa configure su propia clave de Gemini (Configuración).
+    private const string ApiBaseUrl        = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
     private const int MaxIterations        = 5;
     private const int MaxHistorialMensajes = 4; // 4 intercambios = 8 mensajes — menor footprint de tokens
 
