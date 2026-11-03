@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Runtime.CompilerServices;
 using Gonzai_API.Models;
+using Gonzai_API.Services.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
@@ -11,19 +12,10 @@ namespace Gonzai_API.Data;
 /// Limpia la caché del dashboard cuando se guardan cambios que la afectan
 /// (clientes, ventas, pagos, productos). Si hay una transacción abierta, espera al commit
 /// para que ningún lector vuelva a cachear datos viejos entre el guardado y el commit.
+/// Solo borra las claves de la empresa que guardó: la caché es compartida por todas.
 /// </summary>
 public class DashboardCacheInterceptor : SaveChangesInterceptor, IDbTransactionInterceptor
 {
-    public static readonly string[] Claves =
-    [
-        "dashboard:mayor-deuda",
-        "dashboard:total-deuda",
-        "dashboard:clientes-con-deuda",
-        "dashboard:clientes-activos",
-        "dashboard:resumen-mensual",
-        "dashboard:productos-activos"
-    ];
-
     private static readonly Type[] TiposRelevantes =
     [
         typeof(Cliente), typeof(VentaCliente), typeof(VentaClienteDetalle), typeof(PagoCliente),
@@ -31,9 +23,22 @@ public class DashboardCacheInterceptor : SaveChangesInterceptor, IDbTransactionI
     ];
 
     private readonly IMemoryCache _cache;
+    private readonly Func<int?> _empresaId;
     private readonly ConditionalWeakTable<DbContext, StrongBox<bool>> _pendientes = new();
 
-    public DashboardCacheInterceptor(IMemoryCache cache) => _cache = cache;
+    /// <summary>Para el contexto normal de una petición: la empresa la pone el middleware.</summary>
+    public DashboardCacheInterceptor(IMemoryCache cache, ITenantContext tenant)
+    {
+        _cache     = cache;
+        _empresaId = () => tenant.EmpresaId;
+    }
+
+    /// <summary>Para contextos abiertos a mano (login, comprobantes públicos, alta de empresas).</summary>
+    public DashboardCacheInterceptor(IMemoryCache cache, int empresaId)
+    {
+        _cache     = cache;
+        _empresaId = () => empresaId;
+    }
 
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
         DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
@@ -91,6 +96,9 @@ public class DashboardCacheInterceptor : SaveChangesInterceptor, IDbTransactionI
         if (contexto is null) return;
         if (!_pendientes.TryGetValue(contexto, out var marca) || !marca.Value) return;
         marca.Value = false;
-        foreach (var clave in Claves) _cache.Remove(clave);
+
+        if (_empresaId() is not int empresaId) return;
+
+        foreach (var clave in ClavesCache.TodasDelDashboard(empresaId)) _cache.Remove(clave);
     }
 }

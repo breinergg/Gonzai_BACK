@@ -2,6 +2,7 @@ using Gonzai_API.Data;
 using Gonzai_API.DTOs.Cliente;
 using Gonzai_API.Models;
 using Gonzai_API.Services.Interfaces;
+using Gonzai_API.Services.Tenancy;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -13,14 +14,16 @@ public class ClienteService : IClienteService
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
     private readonly IMemoryCache _cache;
+    private readonly ITenantContext _tenant;
 
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(10);
 
-    public ClienteService(AppDbContext context, IMapper mapper, IMemoryCache cache)
+    public ClienteService(AppDbContext context, IMapper mapper, IMemoryCache cache, ITenantContext tenant)
     {
         _context = context;
         _mapper = mapper;
         _cache = cache;
+        _tenant = tenant;
     }
 
     public async Task<IEnumerable<ClienteResponseDto>> GetAllAsync()
@@ -98,7 +101,7 @@ public class ClienteService : IClienteService
 
     public async Task<ClienteMayorDeudaDto?> GetClienteConMayorDeudaAsync()
     {
-        return await _cache.GetOrCreateAsync("dashboard:mayor-deuda", async entry =>
+        return await _cache.GetOrCreateAsync(ClavesCache.Dashboard(_tenant.EmpresaIdRequerido, ClavesCache.MayorDeuda), async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = CacheDuration;
             return await VentasConSaldo()
@@ -117,7 +120,7 @@ public class ClienteService : IClienteService
 
     public async Task<decimal> GetTotalDeudaClientesActivosAsync()
     {
-        return await _cache.GetOrCreateAsync("dashboard:total-deuda", async entry =>
+        return await _cache.GetOrCreateAsync(ClavesCache.Dashboard(_tenant.EmpresaIdRequerido, ClavesCache.TotalDeuda), async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = CacheDuration;
             return await VentasConSaldo().SumAsync(v => (decimal?)v.SaldoPendiente) ?? 0m;
@@ -126,7 +129,7 @@ public class ClienteService : IClienteService
 
     public async Task<int> GetClientesActivosConDeudaCountAsync()
     {
-        return await _cache.GetOrCreateAsync("dashboard:clientes-con-deuda", async entry =>
+        return await _cache.GetOrCreateAsync(ClavesCache.Dashboard(_tenant.EmpresaIdRequerido, ClavesCache.ClientesConDeuda), async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = CacheDuration;
             return await VentasConSaldo()
@@ -138,7 +141,7 @@ public class ClienteService : IClienteService
 
     public async Task<int> GetClientesActivosCountAsync()
     {
-        return await _cache.GetOrCreateAsync("dashboard:clientes-activos", async entry =>
+        return await _cache.GetOrCreateAsync(ClavesCache.Dashboard(_tenant.EmpresaIdRequerido, ClavesCache.ClientesActivos), async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = CacheDuration;
             return await _context.Clientes

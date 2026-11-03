@@ -3,6 +3,7 @@ using Gonzai_API.DTOs.ChatLog;
 using Gonzai_API.DTOs.PreguntaNoReconocida;
 using Gonzai_API.Extensions;
 using Gonzai_API.Services.Interfaces;
+using Gonzai_API.Services.Tenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -17,15 +18,21 @@ public class AiController : ControllerBase
     private readonly IAIService _aiService;
     private readonly IChatLogService _chatLogService;
     private readonly IPreguntaNoReconocidaService _preguntaNoReconocidaService;
+    private readonly ITenantContext _tenant;
+    private readonly ITenantStore _empresas;
 
     public AiController(
         IAIService aiService,
         IChatLogService chatLogService,
-        IPreguntaNoReconocidaService preguntaNoReconocidaService)
+        IPreguntaNoReconocidaService preguntaNoReconocidaService,
+        ITenantContext tenant,
+        ITenantStore empresas)
     {
         _aiService = aiService;
         _chatLogService = chatLogService;
         _preguntaNoReconocidaService = preguntaNoReconocidaService;
+        _tenant = tenant;
+        _empresas = empresas;
     }
 
     // POST: api/ai/chat
@@ -33,6 +40,21 @@ public class AiController : ControllerBase
     [EnableRateLimiting("ai-chat")]
     public async Task<ActionResult<ChatResponseDto>> Chat([FromBody] ChatRequestDto dto)
     {
+        // Cada consulta a la IA se cobra a la cuenta de Gemini de la plataforma, así que
+        // cada empresa tiene su cupo diario.
+        var empresa = await _empresas.PorIdAsync(_tenant.EmpresaIdRequerido);
+
+        if (empresa is not null && await _chatLogService.ContarDelDiaAsync() >= empresa.LimiteChatsDiarios)
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests, new
+            {
+                message = empresa.LimiteChatsDiarios == 0
+                    ? "El asistente de IA no está habilitado para tu empresa."
+                    : $"Tu empresa alcanzó el límite de {empresa.LimiteChatsDiarios} consultas a la IA por día. " +
+                      "Vuelve a intentarlo mañana."
+            });
+        }
+
         var usuarioId = User.GetUsuarioId();
         var historial = await BuildHistorialAsync(dto, usuarioId);
 

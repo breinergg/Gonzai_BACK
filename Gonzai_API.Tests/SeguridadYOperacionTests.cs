@@ -36,7 +36,7 @@ public class SeguridadYOperacionTests
     public async Task Login_con_credenciales_malas_devuelve_401()
     {
         var r = await _api.Anonimo().PostAsJsonAsync("/api/usuario/login",
-            new LoginDto { Email = ApiFixture.AdminEmail, Password = "incorrecta" });
+            new LoginDto { Email = _api.EmpresaA.AdminEmail, Password = "incorrecta" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode);
     }
@@ -50,10 +50,10 @@ public class SeguridadYOperacionTests
         var email = $"vendedor-{Guid.NewGuid():N}@gonzai.local";
         var crear = await admin.PostAsJsonAsync("/api/usuario", new UsuarioCreateDto
         {
-            Nombre = "Vendedor Prueba", Email = email, Password = "Vendedor-123", Rol = "Vendedor"
+            Nombre = "Vendedor Prueba", Email = email, Password = ApiFixture.Password, Rol = "Vendedor"
         });
         crear.EnsureSuccessStatusCode();
-        var vendedor = await _api.ConTokenAsync(email, "Vendedor-123");
+        var vendedor = await _api.ConTokenAsync(email, ApiFixture.Password);
 
         var cliente = await e.CrearClienteAsync();
         var variante = await e.CrearVarianteAsync(5);
@@ -74,13 +74,13 @@ public class SeguridadYOperacionTests
         var email = $"baja-{Guid.NewGuid():N}@gonzai.local";
         var crear = await admin.PostAsJsonAsync("/api/usuario", new UsuarioCreateDto
         {
-            Nombre = "Baja", Email = email, Password = "Baja-12345", Rol = "Vendedor"
+            Nombre = "Baja", Email = email, Password = ApiFixture.Password, Rol = "Vendedor"
         });
         var creado = (await crear.Content.ReadFromJsonAsync<UsuarioResponseDto>())!;
         await admin.DeleteAsync($"/api/usuario/{creado.Id}");
 
         var r = await _api.Anonimo().PostAsJsonAsync("/api/usuario/login",
-            new LoginDto { Email = email, Password = "Baja-12345" });
+            new LoginDto { Email = email, Password = ApiFixture.Password });
 
         Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode);
     }

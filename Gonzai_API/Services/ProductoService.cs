@@ -2,6 +2,7 @@ using Gonzai_API.Data;
 using Gonzai_API.DTOs.Producto;
 using Gonzai_API.Models;
 using Gonzai_API.Services.Interfaces;
+using Gonzai_API.Services.Tenancy;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -14,13 +15,15 @@ public class ProductoService : IProductoService
     private readonly IMapper _mapper;
     private readonly IInventarioService _inventario;
     private readonly IMemoryCache _cache;
+    private readonly ITenantContext _tenant;
 
-    public ProductoService(AppDbContext context, IMapper mapper, IInventarioService inventario, IMemoryCache cache)
+    public ProductoService(AppDbContext context, IMapper mapper, IInventarioService inventario, IMemoryCache cache, ITenantContext tenant)
     {
         _context    = context;
         _mapper     = mapper;
         _inventario = inventario;
         _cache      = cache;
+        _tenant     = tenant;
     }
 
     public async Task<IEnumerable<ProductoResponseDto>> GetAllAsync()
@@ -112,7 +115,7 @@ public class ProductoService : IProductoService
 
     public async Task<int> GetProductosActivosCountAsync()
     {
-        return await _cache.GetOrCreateAsync("dashboard:productos-activos", async entry =>
+        return await _cache.GetOrCreateAsync(ClavesCache.Dashboard(_tenant.EmpresaIdRequerido, ClavesCache.ProductosActivos), async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
             return await _context.Productos

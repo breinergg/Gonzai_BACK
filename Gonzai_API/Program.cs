@@ -10,6 +10,7 @@ using Gonzai_API.Services.AI.Functions;
 using Gonzai_API.Services.Comprobantes;
 using Gonzai_API.Services.Email;
 using Gonzai_API.Services.Interfaces;
+using Gonzai_API.Services.Tenancy;
 using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -62,12 +63,29 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddSingleton<DashboardCacheInterceptor>();
-builder.Services.AddDbContext<AppDbContext>((sp, options) =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
-           .AddInterceptors(sp.GetRequiredService<DashboardCacheInterceptor>()));
+// Catálogo de la plataforma: la lista de empresas y a qué empresa pertenece cada correo.
+builder.Services.AddDbContext<PlataformaDbContext>(options =>
+    options.UseNpgsql(TenantStore.CadenaCatalogo(builder.Configuration)));
 
-builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("postgres");
+builder.Services.AddScoped<TenantContext>();
+builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
+builder.Services.AddScoped<ITenantStore, TenantStore>();
+builder.Services.AddScoped<ITenantDbFactory, TenantDbFactory>();
+builder.Services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
+builder.Services.AddScoped<DashboardCacheInterceptor>();
+
+// Una base de datos por empresa. La conexión sale de la empresa que viene firmada en el token,
+// así que una petición no puede alcanzar los datos de otra empresa ni por error.
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
+    options.UseNpgsql(EF.IsDesignTime
+               // Las herramientas (dotnet ef) construyen el contexto sin ninguna petición de por medio.
+               ? AppDbContextDesignFactory.Cadena()
+               : sp.GetRequiredService<ITenantContext>().CadenaConexionRequerida)
+           .AddInterceptors(sp.GetRequiredService<DashboardCacheInterceptor>()),
+    ServiceLifetime.Scoped, ServiceLifetime.Scoped);
+
+// El health check va contra el catálogo: es la única base que existe siempre, sin sesión.
+builder.Services.AddHealthChecks().AddDbContextCheck<PlataformaDbContext>("postgres");
 
 // Detrás de un proxy inverso (nginx, balanceador) la IP y el esquema reales llegan en X-Forwarded-*.
 // Actívalo solo si la API NO es accesible directamente desde internet; si no, X-Forwarded-For se podría falsificar.
@@ -126,6 +144,8 @@ builder.Services.AddScoped<INegocioService, NegocioService>();
 builder.Services.AddScoped<ComprobantePdfService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IComprobanteService, ComprobanteService>();
+builder.Services.AddScoped<IComprobantePublicoService, ComprobantePublicoService>();
+builder.Services.AddScoped<IAutenticacionService, AutenticacionService>();
 builder.Services.AddScoped<IPreguntaNoReconocidaService, PreguntaNoReconocidaService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 
@@ -248,6 +268,7 @@ if (app.Configuration.GetValue("RateLimiting:Enabled", true))
     app.UseRateLimiter();
 
 app.UseAuthentication();
+app.UseMiddleware<TenantMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

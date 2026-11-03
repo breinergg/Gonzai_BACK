@@ -9,6 +9,5 @@ public interface IUsuarioService
     Task<UsuarioResponseDto> CreateAsync(UsuarioCreateDto dto);
     Task<UsuarioResponseDto?> UpdateAsync(int id, UsuarioUpdateDto dto);
     Task<bool> DeleteAsync(int id);
-    Task<TokenResponseDto?> LoginAsync(LoginDto dto);
     Task<bool> CambiarPasswordAsync(int id, CambiarPasswordDto dto);
 }
