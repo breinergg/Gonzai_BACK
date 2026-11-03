@@ -14,3 +14,7 @@
 .idea/
 *.user
 *.suo
+
+# Pruebas / despliegue local
+TestResults/
+deploy/.env

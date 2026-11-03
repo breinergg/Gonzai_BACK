@@ -243,7 +243,9 @@ if (!app.Environment.IsDevelopment())
 
 app.UseCors("FrontendPolicy");
 
-app.UseRateLimiter();
+// Se puede apagar con RateLimiting:Enabled=false (solo para pruebas automatizadas).
+if (app.Configuration.GetValue("RateLimiting:Enabled", true))
+    app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
