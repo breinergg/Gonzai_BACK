@@ -9,7 +9,11 @@ namespace Gonzai_API.Services.AI;
 public class GeminiService : IAIService
 {
     private const string NoReconocidaToken = "[NO_RECONOCIDA]";
-    private const string ApiBaseUrl        = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+    // Flash-Lite tiene bastante más cupo gratis por minuto que Flash (y el mismo techo de tokens),
+    // y sigue soportando function calling, que es de lo que depende todo este asistente.
+    // gemini-2.5-flash-lite ya no admite cuentas nuevas; Google recomienda 3.5-flash-lite en su lugar
+    // (verificado: responde 200 y sigue generando function calls correctamente).
+    private const string ApiBaseUrl        = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent";
     private const int MaxIterations        = 5;
     private const int MaxHistorialMensajes = 4; // 4 intercambios = 8 mensajes — menor footprint de tokens
 
@@ -282,7 +286,12 @@ internal sealed record GeminiContent(
 internal sealed record GeminiPart(
     [property: JsonPropertyName("text")]             string?                 Text             = null,
     [property: JsonPropertyName("functionCall")]     GeminiFunctionCall?     FunctionCall     = null,
-    [property: JsonPropertyName("functionResponse")] GeminiFunctionResponse? FunctionResponse = null
+    [property: JsonPropertyName("functionResponse")] GeminiFunctionResponse? FunctionResponse = null,
+    // Modelos "thinking" (como 3.5-flash-lite) exigen devolver esta firma tal cual en el
+    // siguiente turno junto con cada functionCall, o rechazan la petición con 400. Como esta
+    // clase se reutiliza para deserializar la respuesta y luego reenviarla, basta con mapear
+    // el campo: no hay que tocar la lógica que arma la conversación.
+    [property: JsonPropertyName("thoughtSignature")] string?                 ThoughtSignature = null
 );
 
 internal sealed record GeminiTool(
