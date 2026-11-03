@@ -177,14 +177,17 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    // AI Chat: máx. 20 peticiones por usuario cada 60 segundos
+    // AI Chat: máx. N peticiones por usuario cada 60 segundos. El límite es configurable para
+    // poder bajarlo en pruebas (RateLimiting:AiChatPermitLimit). La partición combina empresa y
+    // usuario porque el Id de usuario solo es único dentro de su empresa: sin la empresa, el
+    // usuario 1 de una tienda compartiría cupo con el usuario 1 de otra.
+    var aiChatPermitLimit = builder.Configuration.GetValue("RateLimiting:AiChatPermitLimit", 20);
     options.AddPolicy("ai-chat", context =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                          ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            partitionKey: ParticionChatIa(context),
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 20,
+                PermitLimit = aiChatPermitLimit,
                 Window = TimeSpan.FromSeconds(60),
                 QueueLimit = 0
             }));
@@ -213,6 +216,18 @@ builder.Services.AddRateLimiter(options =>
             retryAfterSeconds = retryAfter
         }, cancellationToken);
     };
+
+    // Clave de partición del chat de IA: empresa + usuario (ambos del token ya validado), o la IP
+    // si la petición aún no está autenticada.
+    static string ParticionChatIa(HttpContext context)
+    {
+        var empresa = context.User.FindFirst(TenantMiddleware.ClaimEmpresa)?.Value;
+        var usuario = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        return empresa is not null && usuario is not null
+            ? $"{empresa}:{usuario}"
+            : context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    }
 });
 
 // JWT Authentication
@@ -272,13 +287,15 @@ if (!app.Environment.IsDevelopment())
 
 app.UseCors("FrontendPolicy");
 
-// Se puede apagar con RateLimiting:Enabled=false (solo para pruebas automatizadas).
-if (app.Configuration.GetValue("RateLimiting:Enabled", true))
-    app.UseRateLimiter();
-
 app.UseAuthentication();
 app.UseMiddleware<TenantMiddleware>();
 app.UseAuthorization();
+
+// Va DESPUÉS de la autenticación: así el límite del chat de IA puede particionar por el usuario
+// (y su empresa) del token. Antes de autenticar, context.User está vacío y todo caería a la IP.
+// Se puede apagar con RateLimiting:Enabled=false (solo para pruebas automatizadas).
+if (app.Configuration.GetValue("RateLimiting:Enabled", true))
+    app.UseRateLimiter();
 
 app.MapControllers();
 app.MapHealthChecks("/health").DisableRateLimiting().AllowAnonymous();
