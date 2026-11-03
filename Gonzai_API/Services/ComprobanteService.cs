@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using Gonzai_API.Data;
 using Gonzai_API.DTOs.Comprobante;
 using Gonzai_API.Extensions;
@@ -92,12 +93,7 @@ public class ComprobanteService : IComprobanteService
         var url = UrlPublica(baseUrl, enlace.Token);
         var pdf = _pdf.Generar(datos, fmt);
         var vence = FechaNegocio.ALocal(enlace.ExpiraEn).ToString("dd/MM/yyyy", Cultura);
-        var html = $"""
-            <p>Hola {WebUtility.HtmlEncode(datos.Cliente)},</p>
-            <p>{WebUtility.HtmlEncode(Texto(datos))}</p>
-            <p><a href="{WebUtility.HtmlEncode(url)}">Ver comprobante</a>. El enlace vence el {vence}.</p>
-            <p>{WebUtility.HtmlEncode(datos.Mensaje)}</p>
-            """;
+        var html = HtmlDesdeMensaje(MensajeWhatsapp(datos, url), url, vence);
 
         await _email.EnviarAsync(
             correo.Trim(),
@@ -222,14 +218,14 @@ public class ComprobanteService : IComprobanteService
     private static CompartirComprobanteDto Compartir(DatosComprobante datos, ComprobanteEnlace enlace, string baseUrl)
     {
         var url = UrlPublica(baseUrl, enlace.Token);
-        var mensaje = $"{Texto(datos)} Comprobante: {url}";
+        var mensaje = MensajeWhatsapp(datos, url);
         var telefono = AWhatsapp(datos.TelefonoCliente);
 
         return new CompartirComprobanteDto
         {
             Url = url,
             Mensaje = mensaje,
-            WhatsappUrl = telefono is null ? null : $"https://wa.me/{telefono}?text={Uri.EscapeDataString(mensaje)}",
+            WhatsappUrl = telefono is null ? null : $"https://api.whatsapp.com/send?phone={telefono}&text={Uri.EscapeDataString(mensaje)}",
             ExpiraEn = enlace.ExpiraEn,
             Formato = enlace.Formato
         };
@@ -241,6 +237,54 @@ public class ComprobanteService : IComprobanteService
             return $"Hola, {datos.Cliente}. Registramos tu abono de {Pesos(datos.Pagado)} en {datos.NombreComercial}. {datos.Referencia}. Saldo de la venta: {Pesos(datos.Saldo)}.";
 
         return $"Hola, {datos.Cliente}. Tu {datos.Numero} en {datos.NombreComercial} fue por {Pesos(datos.Total)}. Saldo: {Pesos(datos.Saldo)}.";
+    }
+
+    private static string MensajeWhatsapp(DatosComprobante datos, string url)
+    {
+        var encabezado = datos.EsAbono ? "💳 *Abono registrado*" : "🧾 *Comprobante de venta*";
+        var fecha = FechaNegocio.ALocal(datos.FechaUtc).ToString("dd/MM/yyyy HH:mm", Cultura);
+
+        var lineas = new List<string> { encabezado };
+        if (datos.Anulado) lineas.Add("❌ *Documento anulado*");
+        lineas.Add("━━━━━━━━━━━━━━━━");
+        lineas.Add($"👋 Hola, *{datos.Cliente}*");
+        lineas.Add("");
+        lineas.Add($"🏪 {datos.NombreComercial}");
+        lineas.Add($"🔖 {datos.Numero}");
+        lineas.Add($"📅 {fecha}");
+
+        if (datos.EsAbono)
+        {
+            lineas.Add($"💵 Pagado: *{Pesos(datos.Pagado)}*");
+            if (!string.IsNullOrWhiteSpace(datos.Referencia))
+                lineas.Add($"📝 {datos.Referencia}");
+        }
+        else
+        {
+            lineas.Add($"💰 Total: *{Pesos(datos.Total)}*");
+            lineas.Add($"💵 Pagado: *{Pesos(datos.Pagado)}*");
+        }
+
+        lineas.Add(datos.Saldo > 0
+            ? $"⏳ Saldo pendiente: *{Pesos(datos.Saldo)}*"
+            : $"✅ Saldo: *{Pesos(datos.Saldo)}* · ¡Pagado completo!");
+
+        lineas.Add("");
+        lineas.Add("📄 *Ver comprobante:*");
+        lineas.Add(url);
+        lineas.Add("");
+        lineas.Add($"¡Gracias por confiar en *{datos.NombreComercial}*! 🖤🩶");
+
+        return string.Join("\n", lineas);
+    }
+
+    private static string HtmlDesdeMensaje(string mensaje, string url, string vence)
+    {
+        var urlHtml = WebUtility.HtmlEncode(url);
+        var cuerpo = WebUtility.HtmlEncode(mensaje)
+            .Replace(urlHtml, $"<a href=\"{urlHtml}\">{urlHtml}</a><br>⏰ El enlace vence el {vence}.");
+        cuerpo = Regex.Replace(cuerpo, @"\*(.+?)\*", "<strong>$1</strong>").Replace("\n", "<br>");
+        return $"<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222\">{cuerpo}</div>";
     }
 
     private static string? AWhatsapp(string? telefono)

@@ -66,6 +66,8 @@ public class SmtpEmailSender : IEmailSender
         };
 
         using var cliente = new SmtpClient();
+        if (!_config.GetValue("Smtp:CheckCertificateRevocation", true))
+            cliente.CheckCertificateRevocation = false;
         await cliente.ConnectAsync(_config["Smtp:Host"], puerto, seguridad);
         await cliente.AuthenticateAsync(_config["Smtp:User"], _config["Smtp:Password"]);
         await cliente.SendAsync(mensaje);

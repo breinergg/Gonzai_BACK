@@ -24,18 +24,23 @@ public class VentaClienteController : ControllerBase
         _config = config;
     }
 
-    // GET: api/ventacliente?clienteId=3&desde=2026-10-01&hasta=2026-10-31&soloPendientes=true
+    // GET: api/ventacliente?clienteId=3&desde=2026-10-01&hasta=2026-10-31&soloPendientes=true&page=1&pageSize=50
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<VentaClienteResponseDto>>> GetAll(
+    public async Task<IActionResult> GetAll(
         [FromQuery] int? clienteId,
         [FromQuery] DateOnly? desde,
         [FromQuery] DateOnly? hasta,
-        [FromQuery] bool soloPendientes = false)
+        [FromQuery] bool soloPendientes = false,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
         if (desde > hasta)
             return BadRequest(new { message = "La fecha 'desde' no puede ser mayor que 'hasta'." });
 
-        return Ok(await _service.GetAllAsync(clienteId, desde, hasta, soloPendientes));
+        if (page < 1) page = 1;
+        if (pageSize is < 1 or > 200) pageSize = 50;
+
+        return Ok(await _service.GetAllAsync(clienteId, desde, hasta, soloPendientes, page, pageSize));
     }
 
     // GET: api/ventacliente/resumen-mensual
@@ -61,19 +66,8 @@ public class VentaClienteController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<VentaClienteResponseDto>> Create([FromBody] VentaClienteCreateDto dto)
     {
-        try
-        {
-            var venta = await _service.CreateAsync(dto, User.GetUsuarioId());
-            return CreatedAtAction(nameof(GetById), new { id = venta.Id }, venta);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        var venta = await _service.CreateAsync(dto, User.GetUsuarioId());
+        return CreatedAtAction(nameof(GetById), new { id = venta.Id }, venta);
     }
 
     // POST: api/ventacliente/5/anular
@@ -81,38 +75,20 @@ public class VentaClienteController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<VentaClienteResponseDto>> Anular(int id, [FromBody] AnulacionDto dto)
     {
-        try
-        {
-            var venta = await _service.AnularAsync(id, dto.Motivo, User.GetUsuarioId());
+        var venta = await _service.AnularAsync(id, dto.Motivo, User.GetUsuarioId());
 
-            if (venta is null)
-                return NotFound(new { message = $"Venta con Id {id} no encontrada." });
+        if (venta is null)
+            return NotFound(new { message = $"Venta con Id {id} no encontrada." });
 
-            return Ok(venta);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        return Ok(venta);
     }
 
     // GET: api/ventacliente/11/comprobante?formato=termico
     [HttpGet("{id:int}/comprobante")]
     public async Task<IActionResult> Comprobante(int id, [FromQuery] string? formato)
     {
-        try
-        {
-            var (pdf, nombre) = await _comprobantes.VentaPdfAsync(id, formato);
-            return File(pdf, "application/pdf", nombre);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        var (pdf, nombre) = await _comprobantes.VentaPdfAsync(id, formato);
+        return File(pdf, "application/pdf", nombre);
     }
 
     // GET: api/ventacliente/11/comprobante/compartir?formato=termico&regenerar=false
@@ -120,37 +96,15 @@ public class VentaClienteController : ControllerBase
     public async Task<ActionResult<CompartirComprobanteDto>> Compartir(
         int id, [FromQuery] string? formato, [FromQuery] bool regenerar = false)
     {
-        try
-        {
-            return Ok(await _comprobantes.CompartirVentaAsync(id, formato, regenerar, BasePublica()));
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        return Ok(await _comprobantes.CompartirVentaAsync(id, formato, regenerar, BasePublica()));
     }
 
     // POST: api/ventacliente/11/comprobante/enviar
     [HttpPost("{id:int}/comprobante/enviar")]
     public async Task<IActionResult> Enviar(int id, [FromBody] EnviarComprobanteDto dto)
     {
-        try
-        {
-            await _comprobantes.EnviarVentaAsync(id, dto.Correo, dto.Formato, BasePublica());
-            return Ok(new { message = $"Comprobante enviado a {dto.Correo}." });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        await _comprobantes.EnviarVentaAsync(id, dto.Correo, dto.Formato, BasePublica());
+        return Ok(new { message = $"Comprobante enviado a {dto.Correo}." });
     }
 
     private string BasePublica()

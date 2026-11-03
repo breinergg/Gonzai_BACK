@@ -28,30 +28,16 @@ public class ReportesController : ControllerBase
         [FromQuery] bool soloPendientes = false,
         [FromQuery] bool incluirAnuladas = false)
     {
-        try
-        {
-            var archivo = await _excel.LibroVentasAsync(
-                desde, hasta, clienteId, soloPendientes, incluirAnuladas, User.IsInRole("Admin"));
-            return Archivo(archivo);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        var archivo = await _excel.LibroVentasAsync(
+            desde, hasta, clienteId, soloPendientes, incluirAnuladas, User.IsInRole("Admin"));
+        return Archivo(archivo);
     }
 
     // GET: api/reportes/cartera
     [HttpGet("cartera")]
     public async Task<IActionResult> Cartera()
     {
-        try
-        {
-            return Archivo(await _excel.CarteraAsync());
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        return Archivo(await _excel.CarteraAsync());
     }
 
     // GET: api/reportes/estado-cuenta/5
@@ -75,15 +61,8 @@ public class ReportesController : ControllerBase
         [FromQuery] int? clienteId,
         [FromQuery] bool incluirAnulados = false)
     {
-        try
-        {
-            var archivo = await _excel.AbonosAsync(desde, hasta, clienteId, incluirAnulados);
-            return Archivo(archivo);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        var archivo = await _excel.AbonosAsync(desde, hasta, clienteId, incluirAnulados);
+        return Archivo(archivo);
     }
 
     private FileContentResult Archivo(ArchivoExcel archivo) =>

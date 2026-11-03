@@ -1,4 +1,5 @@
 using Gonzai_API.Data;
+using Gonzai_API.DTOs.Comun;
 using Gonzai_API.DTOs.CompraProveedor;
 using Gonzai_API.Extensions;
 using Gonzai_API.Models;
@@ -21,8 +22,9 @@ public class CompraProveedorService : ICompraProveedorService
         _inventario = inventario;
     }
 
-    public async Task<IEnumerable<CompraProveedorResponseDto>> GetAllAsync(
-        int? proveedorId = null, DateOnly? desde = null, DateOnly? hasta = null)
+    public async Task<PagedResultDto<CompraProveedorResponseDto>> GetAllAsync(
+        int? proveedorId = null, DateOnly? desde = null, DateOnly? hasta = null,
+        int page = 1, int pageSize = 50)
     {
         var query = QueryConDetalle();
 
@@ -35,9 +37,21 @@ public class CompraProveedorService : ICompraProveedorService
             query = query.Where(c => c.Fecha >= desdeUtc && c.Fecha < hastaUtc);
         }
 
-        var compras = await query.OrderByDescending(c => c.Fecha).ToListAsync();
+        var total = await query.CountAsync();
 
-        return _mapper.Map<IEnumerable<CompraProveedorResponseDto>>(compras);
+        var compras = await query
+            .OrderByDescending(c => c.Fecha)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return new PagedResultDto<CompraProveedorResponseDto>
+        {
+            Items    = _mapper.Map<IEnumerable<CompraProveedorResponseDto>>(compras),
+            Total    = total,
+            Page     = page,
+            PageSize = pageSize
+        };
     }
 
     public async Task<CompraProveedorResponseDto?> GetByIdAsync(int id)

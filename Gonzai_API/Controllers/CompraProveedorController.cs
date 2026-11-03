@@ -19,17 +19,22 @@ public class CompraProveedorController : ControllerBase
         _service = service;
     }
 
-    // GET: api/compraproveedor?proveedorId=1&desde=2026-10-01&hasta=2026-10-31
+    // GET: api/compraproveedor?proveedorId=1&desde=2026-10-01&hasta=2026-10-31&page=1&pageSize=50
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<CompraProveedorResponseDto>>> GetAll(
+    public async Task<IActionResult> GetAll(
         [FromQuery] int? proveedorId,
         [FromQuery] DateOnly? desde,
-        [FromQuery] DateOnly? hasta)
+        [FromQuery] DateOnly? hasta,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
         if (desde > hasta)
             return BadRequest(new { message = "La fecha 'desde' no puede ser mayor que 'hasta'." });
 
-        return Ok(await _service.GetAllAsync(proveedorId, desde, hasta));
+        if (page < 1) page = 1;
+        if (pageSize is < 1 or > 200) pageSize = 50;
+
+        return Ok(await _service.GetAllAsync(proveedorId, desde, hasta, page, pageSize));
     }
 
     // GET: api/compraproveedor/5
@@ -48,19 +53,8 @@ public class CompraProveedorController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<CompraProveedorResponseDto>> Create([FromBody] CompraProveedorCreateDto dto)
     {
-        try
-        {
-            var compra = await _service.CreateAsync(dto, User.GetUsuarioId());
-            return CreatedAtAction(nameof(GetById), new { id = compra.Id }, compra);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        var compra = await _service.CreateAsync(dto, User.GetUsuarioId());
+        return CreatedAtAction(nameof(GetById), new { id = compra.Id }, compra);
     }
 
     // POST: api/compraproveedor/5/anular
@@ -68,18 +62,11 @@ public class CompraProveedorController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<CompraProveedorResponseDto>> Anular(int id, [FromBody] AnulacionDto dto)
     {
-        try
-        {
-            var compra = await _service.AnularAsync(id, dto.Motivo, User.GetUsuarioId());
+        var compra = await _service.AnularAsync(id, dto.Motivo, User.GetUsuarioId());
 
-            if (compra is null)
-                return NotFound(new { message = $"Compra con Id {id} no encontrada." });
+        if (compra is null)
+            return NotFound(new { message = $"Compra con Id {id} no encontrada." });
 
-            return Ok(compra);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        return Ok(compra);
     }
 }

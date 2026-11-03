@@ -47,19 +47,8 @@ public class ProductoController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ProductoResponseDto>> Create([FromBody] ProductoCreateDto dto)
     {
-        try
-        {
-            var producto = await _service.CreateAsync(dto, User.GetUsuarioId());
-            return CreatedAtAction(nameof(GetById), new { id = producto.Id }, producto);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        var producto = await _service.CreateAsync(dto, User.GetUsuarioId());
+        return CreatedAtAction(nameof(GetById), new { id = producto.Id }, producto);
     }
 
     // PUT: api/producto/5
@@ -67,19 +56,12 @@ public class ProductoController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ProductoResponseDto>> Update(int id, [FromBody] ProductoUpdateDto dto)
     {
-        try
-        {
-            var producto = await _service.UpdateAsync(id, dto);
+        var producto = await _service.UpdateAsync(id, dto);
 
-            if (producto is null)
-                return NotFound(new { message = $"Producto con Id {id} no encontrado." });
+        if (producto is null)
+            return NotFound(new { message = $"Producto con Id {id} no encontrado." });
 
-            return Ok(producto);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
+        return Ok(producto);
     }
 
     // DELETE: api/producto/5
@@ -120,19 +102,8 @@ public class ProductoController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ProductoVarianteResponseDto>> CreateVariante(int id, [FromBody] ProductoVarianteCreateDto dto)
     {
-        try
-        {
-            var variante = await _service.CreateVarianteAsync(id, dto, User.GetUsuarioId());
-            return CreatedAtAction(nameof(GetVariante), new { varianteId = variante.Id }, variante);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        var variante = await _service.CreateVarianteAsync(id, dto, User.GetUsuarioId());
+        return CreatedAtAction(nameof(GetVariante), new { varianteId = variante.Id }, variante);
     }
 
     // POST: api/producto/5/variantes/matriz  { "tallas": ["S","M","L"], "colores": ["Negro","Blanco"] }
@@ -141,19 +112,8 @@ public class ProductoController : ControllerBase
     public async Task<ActionResult<IEnumerable<ProductoVarianteResponseDto>>> CreateMatriz(
         int id, [FromBody] ProductoVarianteMatrizDto dto)
     {
-        try
-        {
-            var variantes = await _service.CreateMatrizAsync(id, dto, User.GetUsuarioId());
-            return StatusCode(StatusCodes.Status201Created, variantes);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        var variantes = await _service.CreateMatrizAsync(id, dto, User.GetUsuarioId());
+        return StatusCode(StatusCodes.Status201Created, variantes);
     }
 
     // PUT: api/producto/variante/5
@@ -162,19 +122,12 @@ public class ProductoController : ControllerBase
     public async Task<ActionResult<ProductoVarianteResponseDto>> UpdateVariante(
         int varianteId, [FromBody] ProductoVarianteUpdateDto dto)
     {
-        try
-        {
-            var variante = await _service.UpdateVarianteAsync(varianteId, dto);
+        var variante = await _service.UpdateVarianteAsync(varianteId, dto);
 
-            if (variante is null)
-                return NotFound(new { message = $"Variante con Id {varianteId} no encontrada." });
+        if (variante is null)
+            return NotFound(new { message = $"Variante con Id {varianteId} no encontrada." });
 
-            return Ok(variante);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        return Ok(variante);
     }
 
     // DELETE: api/producto/variante/5 (desactiva; conserva su historial)

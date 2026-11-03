@@ -4,6 +4,7 @@ using Gonzai_API.Models;
 using Gonzai_API.Services.Interfaces;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Gonzai_API.Services;
 
@@ -11,11 +12,15 @@ public class ClienteService : IClienteService
 {
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
+    private readonly IMemoryCache _cache;
 
-    public ClienteService(AppDbContext context, IMapper mapper)
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(10);
+
+    public ClienteService(AppDbContext context, IMapper mapper, IMemoryCache cache)
     {
         _context = context;
         _mapper = mapper;
+        _cache = cache;
     }
 
     public async Task<IEnumerable<ClienteResponseDto>> GetAllAsync()
@@ -93,37 +98,53 @@ public class ClienteService : IClienteService
 
     public async Task<ClienteMayorDeudaDto?> GetClienteConMayorDeudaAsync()
     {
-        return await VentasConSaldo()
-            .GroupBy(v => new { v.ClienteId, v.Cliente.Nombre, v.Cliente.Telefono })
-            .Select(g => new ClienteMayorDeudaDto
-            {
-                Id         = g.Key.ClienteId,
-                Nombre     = g.Key.Nombre,
-                Telefono   = g.Key.Telefono,
-                TotalDeuda = g.Sum(v => v.SaldoPendiente)
-            })
-            .OrderByDescending(r => r.TotalDeuda)
-            .FirstOrDefaultAsync();
+        return await _cache.GetOrCreateAsync("dashboard:mayor-deuda", async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+            return await VentasConSaldo()
+                .GroupBy(v => new { v.ClienteId, v.Cliente.Nombre, v.Cliente.Telefono })
+                .Select(g => new ClienteMayorDeudaDto
+                {
+                    Id         = g.Key.ClienteId,
+                    Nombre     = g.Key.Nombre,
+                    Telefono   = g.Key.Telefono,
+                    TotalDeuda = g.Sum(v => v.SaldoPendiente)
+                })
+                .OrderByDescending(r => r.TotalDeuda)
+                .FirstOrDefaultAsync();
+        });
     }
 
     public async Task<decimal> GetTotalDeudaClientesActivosAsync()
     {
-        return await VentasConSaldo().SumAsync(v => (decimal?)v.SaldoPendiente) ?? 0m;
+        return await _cache.GetOrCreateAsync("dashboard:total-deuda", async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+            return await VentasConSaldo().SumAsync(v => (decimal?)v.SaldoPendiente) ?? 0m;
+        });
     }
 
     public async Task<int> GetClientesActivosConDeudaCountAsync()
     {
-        return await VentasConSaldo()
-            .Select(v => v.ClienteId)
-            .Distinct()
-            .CountAsync();
+        return await _cache.GetOrCreateAsync("dashboard:clientes-con-deuda", async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+            return await VentasConSaldo()
+                .Select(v => v.ClienteId)
+                .Distinct()
+                .CountAsync();
+        });
     }
 
     public async Task<int> GetClientesActivosCountAsync()
     {
-        return await _context.Clientes
-            .AsNoTracking()
-            .CountAsync(c => c.Activo);
+        return await _cache.GetOrCreateAsync("dashboard:clientes-activos", async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+            return await _context.Clientes
+                .AsNoTracking()
+                .CountAsync(c => c.Activo);
+        });
     }
 
     public async Task<ClienteSaldoDto?> GetSaldoByClienteIdAsync(int clienteId)
