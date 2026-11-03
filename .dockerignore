@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/.vs/
+.git
+.gitignore
+.vscode
+Gonzai_API.Tests/
+deploy/
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/*.user
+**/.DS_Store
+*.sql

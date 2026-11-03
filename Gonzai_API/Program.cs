@@ -76,7 +76,7 @@ if (builder.Configuration.GetValue("ForwardedHeaders:Enabled", false))
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-        options.ForwardLimit = 1;
+        options.ForwardLimit = builder.Configuration.GetValue("ForwardedHeaders:ForwardLimit", 1);
         options.KnownNetworks.Clear();
         options.KnownProxies.Clear();
     });
