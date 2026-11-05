@@ -63,7 +63,8 @@ services:
       HttpsRedirection__Enabled: "false"
       Cors__Origins__0: ${PUBLIC_URL:?Define PUBLIC_URL en .env (ej. https://gonzai.midominio.com)}
       Comprobantes__BaseUrl: ${PUBLIC_URL}
-      AllowedHosts: ${PUBLIC_HOST:?Define PUBLIC_HOST en .env (ej. gonzai.midominio.com)}
+      # "localhost" queda siempre permitido: lo usa el healthcheck interno del contenedor.
+      AllowedHosts: ${PUBLIC_HOST:?Define PUBLIC_HOST en .env (ej. gonzai.midominio.com)};localhost
       Smtp__Host: ${SMTP_HOST:-}
       Smtp__Port: ${SMTP_PORT:-587}
       Smtp__Security: ${SMTP_SECURITY:-starttls}
